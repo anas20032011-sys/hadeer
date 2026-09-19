@@ -242,14 +242,14 @@
       <button data-tab="daily" class="admin-only" style="display:none;">التحضير اليومي</button>
       <button data-tab="monthly" class="admin-only" style="display:none;">التقرير الشهري</button>
       <button data-tab="manage" class="admin-only" style="display:none;">إدارة المشرفين</button>
-      <button data-tab="login" id="loginTabBtn">دخول الإدمن</button>
+      <button data-tab="login" id="loginTabBtn">دخول مشرف المتابعة</button>
     </nav>
   </header>
 
   <!-- ADMIN LOGIN -->
   <section id="login">
     <div class="card checkin-box">
-      <div style="font-weight:900; font-size:16px; margin-bottom:18px;">دخول لوحة الإدارة</div>
+      <div style="font-weight:900; font-size:16px; margin-bottom:18px;">دخول مشرف المتابعة</div>
       <input type="email" id="loginEmail" placeholder="البريد الإلكتروني">
       <input type="password" id="loginPass" placeholder="كلمة المرور">
       <button class="primary-btn" id="loginBtn">تسجيل الدخول</button>
@@ -687,7 +687,7 @@ document.querySelectorAll('nav.tabs button').forEach(btn => {
 auth.onAuthStateChanged(user => {
   isAdmin = !!user;
   document.querySelectorAll('.admin-only').forEach(b => b.style.display = isAdmin ? '' : 'none');
-  $('#loginTabBtn').textContent = isAdmin ? 'تسجيل الخروج' : 'دخول الإدمن';
+  $('#loginTabBtn').textContent = isAdmin ? 'تسجيل الخروج' : 'دخول مشرف المتابعة';
   if(isAdmin){
     // بعد الدخول، وديه لأول تبويب إداري
     document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
