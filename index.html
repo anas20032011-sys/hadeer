@@ -6,6 +6,7 @@
 <title>تحضير المشرفين</title>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.13.1/firebase-app-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.13.1/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.13.1/firebase-auth-compat.js"></script>
 <style>
 @font-face {
   font-family: 'ThmanyahSans';
@@ -238,11 +239,23 @@
     </div>
     <nav class="tabs">
       <button class="active" data-tab="checkin">تسجيل حضوري</button>
-      <button data-tab="daily">التحضير اليومي</button>
-      <button data-tab="monthly">التقرير الشهري</button>
-      <button data-tab="manage">إدارة المشرفين</button>
+      <button data-tab="daily" class="admin-only" style="display:none;">التحضير اليومي</button>
+      <button data-tab="monthly" class="admin-only" style="display:none;">التقرير الشهري</button>
+      <button data-tab="manage" class="admin-only" style="display:none;">إدارة المشرفين</button>
+      <button data-tab="login" id="loginTabBtn">دخول الإدمن</button>
     </nav>
   </header>
+
+  <!-- ADMIN LOGIN -->
+  <section id="login">
+    <div class="card checkin-box">
+      <div style="font-weight:900; font-size:16px; margin-bottom:18px;">دخول لوحة الإدارة</div>
+      <input type="email" id="loginEmail" placeholder="البريد الإلكتروني">
+      <input type="password" id="loginPass" placeholder="كلمة المرور">
+      <button class="primary-btn" id="loginBtn">تسجيل الدخول</button>
+      <div id="loginResult"></div>
+    </div>
+  </section>
 
   <!-- SELF CHECK-IN (for supervisors, mobile) -->
   <section id="checkin" class="active">
@@ -336,7 +349,9 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const auth = firebase.auth();
 const docRef = db.collection('hadeer').doc('appData');
+let isAdmin = false;
 
 let state = { supervisors: [], records: {}, settings: { startTime: '08:00', grace: 15 } };
 let currentDate = new Date();
@@ -656,12 +671,49 @@ $('#manageList').addEventListener('click', e => {
 // ---------- TABS ----------
 document.querySelectorAll('nav.tabs button').forEach(btn => {
   btn.addEventListener('click', () => {
+    if(btn.id === 'loginTabBtn' && isAdmin){
+      auth.signOut();
+      return;
+    }
     document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
     btn.classList.add('active');
     $('#' + btn.dataset.tab).classList.add('active');
     if(btn.dataset.tab === 'monthly') renderMonthly();
   });
+});
+
+// ---------- ADMIN LOGIN ----------
+auth.onAuthStateChanged(user => {
+  isAdmin = !!user;
+  document.querySelectorAll('.admin-only').forEach(b => b.style.display = isAdmin ? '' : 'none');
+  $('#loginTabBtn').textContent = isAdmin ? 'تسجيل الخروج' : 'دخول الإدمن';
+  if(isAdmin){
+    // بعد الدخول، وديه لأول تبويب إداري
+    document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+    $('button[data-tab="daily"]').classList.add('active');
+    $('#daily').classList.add('active');
+  } else {
+    // بعد الخروج، رجّعه لصفحة تسجيل الحضور
+    document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+    $('button[data-tab="checkin"]').classList.add('active');
+    $('#checkin').classList.add('active');
+  }
+});
+
+$('#loginBtn').addEventListener('click', () => {
+  const email = $('#loginEmail').value.trim();
+  const pass = $('#loginPass').value;
+  const resultBox = $('#loginResult');
+  if(!email || !pass){
+    resultBox.innerHTML = '<div class="checkin-result err">أدخل البريد وكلمة المرور</div>';
+    return;
+  }
+  auth.signInWithEmailAndPassword(email, pass)
+    .then(() => { resultBox.innerHTML = ''; $('#loginPass').value=''; })
+    .catch(() => { resultBox.innerHTML = '<div class="checkin-result err">بيانات الدخول غير صحيحة</div>'; });
 });
 
 function renderAll(){
