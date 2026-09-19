@@ -215,23 +215,6 @@
 
   .note{ font-size:12px; color:var(--ink-soft); margin-top:10px; line-height:1.7; }
 
-  /* Supervisor-only mode: dedicated link for supervisors, hides admin UI */
-  body.supervisor-mode nav.tabs{ display:none; }
-  body.supervisor-mode .brand p{ display:none; }
-  body.supervisor-mode section{ display:none !important; }
-  body.supervisor-mode #checkin{ display:block !important; }
-  body.supervisor-mode .app{ max-width:460px; padding-top:40px; }
-
-  .share-link-box{
-    display:flex; gap:8px; align-items:center; background:var(--paper);
-    border:1px dashed var(--line); border-radius:10px; padding:10px 12px; margin-bottom:14px;
-  }
-  .share-link-box input{ flex:1; border:none; background:transparent; font-size:12px; direction:ltr; text-align:left; color:var(--ink-soft); }
-  .share-link-box button{
-    background:var(--accent); color:#fff; border:none; padding:8px 14px; border-radius:8px;
-    font-family:inherit; font-weight:700; font-size:12.5px; cursor:pointer; white-space:nowrap;
-  }
-
   @media(max-width:640px){
     body{padding:14px;}
     .sup-row{flex-direction:column; align-items:flex-start;}
@@ -326,11 +309,6 @@
   <!-- MANAGE -->
   <section id="manage">
     <div class="card">
-      <div class="share-link-box">
-        <input type="text" id="supervisorLink" readonly>
-        <button id="copyLinkBtn">نسخ الرابط</button>
-      </div>
-      <div class="note" style="margin-top:-8px; margin-bottom:16px;">شارك هذا الرابط مع المشرفين ليفتحوه من جوالهم — يوديهم مباشرة لصفحة تسجيل الحضور فقط، بدون رؤية لوحة الإدارة.</div>
       <div class="settings-block">
         <div class="block-title">أيام الدوام الرسمية</div>
         <div class="day-chips" id="dayChips"></div>
@@ -776,35 +754,9 @@ function renderAll(){
   renderManage();
 }
 
-// ---------- SUPERVISOR-ONLY LINK MODE ----------
-function applySupervisorMode(){
-  const params = new URLSearchParams(window.location.search);
-  if(params.get('mode') === 'supervisor'){
-    document.body.classList.add('supervisor-mode');
-  }
-}
-
-function setupShareLink(){
-  const linkInput = $('#supervisorLink');
-  if(!linkInput) return;
-  const base = window.location.origin + window.location.pathname;
-  linkInput.value = base + '?mode=supervisor';
-  $('#copyLinkBtn').addEventListener('click', () => {
-    linkInput.select();
-    navigator.clipboard?.writeText(linkInput.value).then(() => {
-      showToast('تم نسخ الرابط');
-    }).catch(() => {
-      document.execCommand('copy');
-      showToast('تم نسخ الرابط');
-    });
-  });
-}
-
 // init
 $('#dailyDate').value = fmtDate(currentDate);
 $('#monthPicker').value = fmtDate(currentMonth).slice(0,7);
-applySupervisorMode();
-setupShareLink();
 tick();
 loadState();
 </script>
