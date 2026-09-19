@@ -237,7 +237,7 @@
     <nav class="tabs">
       <button class="active" data-tab="checkin">تسجيل حضوري</button>
       <button data-tab="daily" class="admin-only" style="display:none;">التحضير اليومي</button>
-      <button data-tab="monthly" class="admin-only" style="display:none;">التقرير الشهري</button>
+      <button data-tab="monthly" class="admin-only" style="display:none;">تقرير الفترة</button>
       <button data-tab="manage" class="admin-only" style="display:none;">إدارة المشرفين</button>
       <button data-tab="login" id="loginTabBtn">دخول مشرف المتابعة</button>
     </nav>
@@ -293,8 +293,19 @@
   <section id="monthly">
     <div class="summary-strip" id="summaryStrip"></div>
     <div class="card">
+      <div class="settings-row" style="margin-bottom:14px;">
+        <label>من:</label>
+        <input type="date" id="periodStart">
+        <span class="pin-tag" id="periodStartHijri">—</span>
+        <label>إلى:</label>
+        <input type="date" id="periodEnd">
+        <span class="pin-tag" id="periodEndHijri">—</span>
+      </div>
+      <div class="settings-row" style="margin-bottom:16px;">
+        <input type="text" id="periodName" placeholder="اسم الفترة (مثال: الترم الأول 1447هـ)" style="flex:1; min-width:200px;">
+        <button class="primary-btn" id="showPeriodBtn">عرض التقرير</button>
+      </div>
       <div class="toolbar">
-        <input type="month" id="monthPicker">
         <div class="legend">
           <span><i class="dot" style="background:var(--present)"></i>حاضر</span>
           <span><i class="dot" style="background:var(--absent)"></i>غائب</span>
@@ -304,6 +315,7 @@
         </div>
         <button class="primary-btn" id="exportExcelBtn">تصدير Excel</button>
       </div>
+      <div class="note" style="margin-top:0; margin-bottom:12px;">التواريخ المعروضة بالتقرير بالتقويم الهجري. أيام الأسبوع تُحسب حسب أيام الدوام المحددة في "إدارة المشرفين".</div>
       <div class="heatmap-wrap"><table class="heatmap" id="heatmapTable"></table></div>
     </div>
   </section>
@@ -537,19 +549,68 @@ $('#todayBtn').addEventListener('click', () => {
 });
 
 // ---------- MONTHLY TAB ----------
+// ---------- HIJRI DATE HELPERS ----------
+function toHijri(dateObj){
+  try{
+    const fmt = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { day:'numeric', month:'numeric', year:'numeric' });
+    const parts = fmt.formatToParts(dateObj);
+    const day = parts.find(p=>p.type==='day').value;
+    const month = parts.find(p=>p.type==='month').value;
+    const year = parts.find(p=>p.type==='year').value;
+    return { day, month, year };
+  }catch(e){
+    return null;
+  }
+}
+function hijriShort(dateObj){
+  const h = toHijri(dateObj);
+  return h ? `${h.day}/${h.month}` : String(dateObj.getDate());
+}
+function hijriFull(dateObj){
+  const h = toHijri(dateObj);
+  return h ? `${h.day}/${h.month}/${h.year}هـ` : fmtDate(dateObj);
+}
+function dateRangeList(startStr, endStr){
+  const list = [];
+  let cur = new Date(startStr + 'T00:00:00');
+  const end = new Date(endStr + 'T00:00:00');
+  while(cur <= end){
+    list.push(fmtDate(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return list;
+}
+
+function updateHijriLabels(){
+  const s = $('#periodStart').value;
+  const e = $('#periodEnd').value;
+  $('#periodStartHijri').textContent = s ? hijriFull(new Date(s + 'T00:00:00')) : '—';
+  $('#periodEndHijri').textContent = e ? hijriFull(new Date(e + 'T00:00:00')) : '—';
+}
+
 function renderMonthly(){
-  const [year, month] = $('#monthPicker').value.split('-').map(Number);
-  const daysInMonth = new Date(year, month, 0).getDate();
+  const startStr = $('#periodStart').value;
+  const endStr = $('#periodEnd').value;
   const table = $('#heatmapTable');
 
+  if(!startStr || !endStr || startStr > endStr){
+    table.innerHTML = '';
+    $('#summaryStrip').innerHTML = `<div class="card" style="flex:1;"><div class="empty-state"><div class="big">حدّد بداية ونهاية الفترة</div>اختر تاريخ البداية والنهاية ثم اضغط "عرض التقرير"</div></div>`;
+    return;
+  }
   if(state.supervisors.length === 0){
     table.innerHTML = '';
     $('#summaryStrip').innerHTML = `<div class="card" style="flex:1;"><div class="empty-state"><div class="big">ما فيه بيانات بعد</div>أضف مشرفين وسجل حضورهم أول</div></div>`;
     return;
   }
 
+  const days = dateRangeList(startStr, endStr);
+  const workDays = (state.settings.workDays && state.settings.workDays.length) ? state.settings.workDays : [0,1,2,3,4];
+
   let thead = '<tr><th class="name-col">المشرف</th>';
-  for(let d=1; d<=daysInMonth; d++){ thead += `<th>${d}</th>`; }
+  days.forEach(dateStr => {
+    thead += `<th title="${hijriFull(new Date(dateStr + 'T00:00:00'))}">${hijriShort(new Date(dateStr + 'T00:00:00'))}</th>`;
+  });
   thead += '</tr>';
 
   let rows = '';
@@ -557,16 +618,14 @@ function renderMonthly(){
 
   state.supervisors.forEach(sup => {
     rows += `<tr><td class="name-col">${sup.name}</td>`;
-    for(let d=1; d<=daysInMonth; d++){
-      const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    days.forEach(dateStr => {
       const key = sup.id + ':' + dateStr;
       const status = state.records[key];
-      const dow = new Date(year, month-1, d).getDay();
-      const workDays = (state.settings.workDays && state.settings.workDays.length) ? state.settings.workDays : [0,1,2,3,4];
+      const dow = new Date(dateStr + 'T00:00:00').getDay();
       const weekend = !workDays.includes(dow) ? 'weekend' : '';
       if(status) totals[status] = (totals[status]||0) + 1;
-      rows += `<td><span class="cell ${status||''} ${weekend}" title="${sup.name} - ${dateStr}${status ? ' - '+statusLabel[status] : ''}" data-sup="${sup.id}" data-date="${dateStr}"></span></td>`;
-    }
+      rows += `<td><span class="cell ${status||''} ${weekend}" title="${sup.name} - ${hijriFull(new Date(dateStr + 'T00:00:00'))}${status ? ' - '+statusLabel[status] : ''}" data-sup="${sup.id}" data-date="${dateStr}"></span></td>`;
+    });
     rows += '</tr>';
   });
 
@@ -595,7 +654,9 @@ $('#heatmapTable').addEventListener('click', e => {
   renderMonthly();
 });
 
-$('#monthPicker').addEventListener('change', renderMonthly);
+$('#periodStart').addEventListener('change', updateHijriLabels);
+$('#periodEnd').addEventListener('change', updateHijriLabels);
+$('#showPeriodBtn').addEventListener('click', renderMonthly);
 
 // ---------- EXPORT TO EXCEL ----------
 $('#exportExcelBtn').addEventListener('click', () => {
@@ -603,37 +664,41 @@ $('#exportExcelBtn').addEventListener('click', () => {
     showToast('ما فيه بيانات للتصدير');
     return;
   }
-  const [year, month] = $('#monthPicker').value.split('-').map(Number);
-  const daysInMonth = new Date(year, month, 0).getDate();
-  const workDays = (state.settings.workDays && state.settings.workDays.length) ? state.settings.workDays : [0,1,2,3,4];
+  const startStr = $('#periodStart').value;
+  const endStr = $('#periodEnd').value;
+  if(!startStr || !endStr || startStr > endStr){
+    showToast('حدّد بداية ونهاية الفترة أول');
+    return;
+  }
+  const days = dateRangeList(startStr, endStr);
 
-  // ورقة 1: جدول يومي تفصيلي
+  // ورقة 1: جدول يومي تفصيلي بالتاريخ الهجري
   const header = ['المشرف'];
-  for(let d=1; d<=daysInMonth; d++) header.push(String(d));
+  days.forEach(dateStr => header.push(hijriFull(new Date(dateStr + 'T00:00:00'))));
   header.push('أيام حضور','أيام غياب','أيام تأخير','أيام إجازة');
 
   const rows = [header];
   state.supervisors.forEach(sup => {
     const row = [sup.name];
     const totals = { present:0, absent:0, late:0, excused:0 };
-    for(let d=1; d<=daysInMonth; d++){
-      const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    days.forEach(dateStr => {
       const status = state.records[sup.id + ':' + dateStr];
       if(status) totals[status]++;
       row.push(status ? statusLabel[status] : '');
-    }
+    });
     row.push(totals.present, totals.absent, totals.late, totals.excused);
     rows.push(row);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{ wch: 20 }, ...Array(daysInMonth).fill({ wch: 6 }), { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
+  ws['!cols'] = [{ wch: 20 }, ...Array(days.length).fill({ wch: 12 }), { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'تقرير الحضور');
 
-  const monthName = new Date(year, month-1, 1).toLocaleDateString('ar-SA', { month:'long', year:'numeric' });
-  XLSX.writeFile(wb, `تحضير_المشرفين_${monthName}.xlsx`);
+  const rawName = $('#periodName').value.trim();
+  const fileName = rawName ? rawName.replace(/[\\/:*?"<>|]/g, '-') : `تحضير_المشرفين_${startStr}_إلى_${endStr}`;
+  XLSX.writeFile(wb, `${fileName}.xlsx`);
   showToast('تم تصدير الملف');
 });
 
@@ -798,7 +863,12 @@ function renderAll(){
 
 // init
 $('#dailyDate').value = fmtDate(currentDate);
-$('#monthPicker').value = fmtDate(currentMonth).slice(0,7);
+{
+  const firstOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+  $('#periodStart').value = fmtDate(firstOfMonth);
+  $('#periodEnd').value = fmtDate(currentMonth);
+  updateHijriLabels();
+}
 tick();
 loadState();
 </script>
