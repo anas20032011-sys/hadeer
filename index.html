@@ -180,6 +180,19 @@
 
   .settings-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   .settings-row label{ font-size:13px; font-weight:700; color:var(--ink-soft); }
+  .settings-block{ margin-bottom:18px; padding-bottom:18px; border-bottom:1px solid var(--line); }
+  .settings-block:last-of-type{ border-bottom:none; }
+  .settings-block .block-title{ font-size:13px; font-weight:700; color:var(--ink-soft); margin-bottom:10px; }
+  .day-chips{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+  .day-chip{
+    border:1.5px solid var(--line); background:var(--card); padding:8px 14px; border-radius:9px;
+    font-family:inherit; font-size:13px; font-weight:700; cursor:pointer; color:var(--ink-soft); transition:.12s;
+  }
+  .day-chip.on{ background:var(--accent-soft); color:var(--accent); border-color:var(--accent); }
+  .weekend-badge{
+    display:inline-block; background:var(--excused-bg); color:var(--excused); font-size:12px; font-weight:700;
+    padding:4px 10px; border-radius:8px; margin-top:8px;
+  }
 
   /* Self check-in */
   .checkin-box{ max-width:420px; margin:0 auto; text-align:center; }
@@ -279,6 +292,7 @@
           <input type="date" id="dailyDate">
           <button id="nextDay">›</button>
           <button id="todayBtn" style="width:auto; padding:0 12px;">اليوم</button>
+          <span id="offDayBadge" class="weekend-badge" style="display:none; margin-top:0;">إجازة أسبوعية</span>
         </div>
         <div class="legend">
           <span><i class="dot" style="background:var(--present)"></i>حاضر</span>
@@ -317,12 +331,16 @@
         <button id="copyLinkBtn">نسخ الرابط</button>
       </div>
       <div class="note" style="margin-top:-8px; margin-bottom:16px;">شارك هذا الرابط مع المشرفين ليفتحوه من جوالهم — يوديهم مباشرة لصفحة تسجيل الحضور فقط، بدون رؤية لوحة الإدارة.</div>
-      <div class="settings-row" style="margin-bottom:18px;">
-        <label>بداية الدوام:</label>
-        <input type="time" id="startTimeInput">
-        <label>مهلة السماح (دقيقة):</label>
-        <input type="text" id="graceInput" style="width:70px;" inputmode="numeric">
-        <button class="primary-btn" id="saveSettingsBtn">حفظ</button>
+      <div class="settings-block">
+        <div class="block-title">أيام الدوام الرسمية</div>
+        <div class="day-chips" id="dayChips"></div>
+        <div class="settings-row">
+          <label>بداية الدوام:</label>
+          <input type="time" id="startTimeInput">
+          <label>مهلة السماح (دقيقة):</label>
+          <input type="text" id="graceInput" style="width:70px;" inputmode="numeric">
+          <button class="primary-btn" id="saveSettingsBtn">حفظ الإعدادات</button>
+        </div>
       </div>
       <div class="add-row">
         <input type="text" id="newSupName" placeholder="اسم المشرف الجديد">
@@ -353,7 +371,7 @@ const auth = firebase.auth();
 const docRef = db.collection('hadeer').doc('appData');
 let isAdmin = false;
 
-let state = { supervisors: [], records: {}, settings: { startTime: '08:00', grace: 15 } };
+let state = { supervisors: [], records: {}, settings: { startTime: '08:00', grace: 15, workDays: [0,1,2,3,4] } };
 let currentDate = new Date();
 let currentMonth = new Date();
 
@@ -373,7 +391,8 @@ async function loadState(){
     const snap = await docRef.get();
     if(snap.exists){
       const loaded = snap.data();
-      state = Object.assign({ supervisors:[], records:{}, settings:{ startTime:'08:00', grace:15 } }, loaded);
+      state = Object.assign({ supervisors:[], records:{}, settings:{} }, loaded);
+      state.settings = Object.assign({ startTime:'08:00', grace:15, workDays:[0,1,2,3,4] }, state.settings || {});
     }
   }catch(e){
     showToast('تعذر الاتصال بقاعدة البيانات');
@@ -393,7 +412,8 @@ async function saveState(){
 docRef.onSnapshot(snap => {
   if(!snap.exists) return;
   const loaded = snap.data();
-  state = Object.assign({ supervisors:[], records:{}, settings:{ startTime:'08:00', grace:15 } }, loaded);
+  state = Object.assign({ supervisors:[], records:{}, settings:{} }, loaded);
+  state.settings = Object.assign({ startTime:'08:00', grace:15, workDays:[0,1,2,3,4] }, state.settings || {});
   renderAll();
 }, err => console.error(err));
 
@@ -474,6 +494,9 @@ $('#checkinBtn').addEventListener('click', () => {
 function renderDaily(){
   const list = $('#dailyList');
   const dateStr = $('#dailyDate').value;
+  const dow = new Date(dateStr).getDay();
+  const workDays = (state.settings.workDays && state.settings.workDays.length) ? state.settings.workDays : [0,1,2,3,4];
+  $('#offDayBadge').style.display = workDays.includes(dow) ? 'none' : 'inline-block';
   list.innerHTML = '';
   if(state.supervisors.length === 0){
     list.innerHTML = `<div class="empty-state"><div class="big">ما فيه مشرفين مضافين بعد</div>روح لتبويب "إدارة المشرفين" وأضفهم أول</div>`;
@@ -559,7 +582,8 @@ function renderMonthly(){
       const key = sup.id + ':' + dateStr;
       const status = state.records[key];
       const dow = new Date(year, month-1, d).getDay();
-      const weekend = (dow === 5 || dow === 6) ? 'weekend' : '';
+      const workDays = (state.settings.workDays && state.settings.workDays.length) ? state.settings.workDays : [0,1,2,3,4];
+      const weekend = !workDays.includes(dow) ? 'weekend' : '';
       if(status) totals[status] = (totals[status]||0) + 1;
       rows += `<td><span class="cell ${status||''} ${weekend}" title="${sup.name} - ${dateStr}${status ? ' - '+statusLabel[status] : ''}" data-sup="${sup.id}" data-date="${dateStr}"></span></td>`;
     }
@@ -594,9 +618,33 @@ $('#heatmapTable').addEventListener('click', e => {
 $('#monthPicker').addEventListener('change', renderMonthly);
 
 // ---------- MANAGE TAB ----------
+const DAY_NAMES = ['أحد','اثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'];
+let selectedWorkDays = [0,1,2,3,4];
+
+function renderDayChips(){
+  selectedWorkDays = (state.settings.workDays && state.settings.workDays.length) ? state.settings.workDays.slice() : [0,1,2,3,4];
+  const box = $('#dayChips');
+  box.innerHTML = DAY_NAMES.map((name, i) => `
+    <button type="button" class="day-chip ${selectedWorkDays.includes(i) ? 'on' : ''}" data-day="${i}">${name}</button>
+  `).join('');
+}
+
+$('#dayChips').addEventListener('click', e => {
+  const chip = e.target.closest('.day-chip');
+  if(!chip) return;
+  const day = Number(chip.dataset.day);
+  if(selectedWorkDays.includes(day)){
+    selectedWorkDays = selectedWorkDays.filter(d => d !== day);
+  } else {
+    selectedWorkDays.push(day);
+  }
+  chip.classList.toggle('on');
+});
+
 function renderManage(){
   $('#startTimeInput').value = state.settings.startTime || '08:00';
   $('#graceInput').value = state.settings.grace ?? 15;
+  renderDayChips();
 
   const list = $('#manageList');
   if(state.supervisors.length === 0){
@@ -618,8 +666,13 @@ function renderManage(){
 $('#saveSettingsBtn').addEventListener('click', () => {
   const t = $('#startTimeInput').value || '08:00';
   const g = Number($('#graceInput').value) || 0;
+  if(selectedWorkDays.length === 0){
+    showToast('اختر يوم دوام واحد على الأقل');
+    return;
+  }
   state.settings.startTime = t;
   state.settings.grace = g;
+  state.settings.workDays = selectedWorkDays.slice().sort();
   saveState();
   showToast('تم حفظ الإعدادات');
 });
