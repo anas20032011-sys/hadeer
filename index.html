@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>تحضير المشرفين</title>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.13.1/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.13.1/firebase-firestore-compat.js"></script>
 <style>
 @font-face {
   font-family: 'ThmanyahSans';
@@ -323,7 +325,19 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const STORAGE_KEY = 'attendance-app-data';
+// إعداد Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyDUWr83DcHhXndF79v4yyph041GoVCr1J4",
+  authDomain: "hadeer-attendance.firebaseapp.com",
+  projectId: "hadeer-attendance",
+  storageBucket: "hadeer-attendance.firebasestorage.app",
+  messagingSenderId: "247535308843",
+  appId: "1:247535308843:web:ef95059118d08d66801a6e"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const docRef = db.collection('hadeer').doc('appData');
+
 let state = { supervisors: [], records: {}, settings: { startTime: '08:00', grace: 15 } };
 let currentDate = new Date();
 let currentMonth = new Date();
@@ -341,24 +355,32 @@ function showToast(msg){
 
 async function loadState(){
   try{
-    const res = await window.storage.get(STORAGE_KEY, true);
-    if(res && res.value){
-      const loaded = JSON.parse(res.value);
+    const snap = await docRef.get();
+    if(snap.exists){
+      const loaded = snap.data();
       state = Object.assign({ supervisors:[], records:{}, settings:{ startTime:'08:00', grace:15 } }, loaded);
     }
   }catch(e){
-    // لا توجد بيانات محفوظة بعد
+    showToast('تعذر الاتصال بقاعدة البيانات');
   }
   renderAll();
 }
 
 async function saveState(){
   try{
-    await window.storage.set(STORAGE_KEY, JSON.stringify(state), true);
+    await docRef.set(state);
   }catch(e){
-    showToast('تعذر الحفظ، حاول مرة أخرى');
+    showToast('تعذر الحفظ، تحقق من الاتصال بالإنترنت');
   }
 }
+
+// مزامنة فورية: أي تغيير من جهاز آخر ينعكس هنا تلقائيًا
+docRef.onSnapshot(snap => {
+  if(!snap.exists) return;
+  const loaded = snap.data();
+  state = Object.assign({ supervisors:[], records:{}, settings:{ startTime:'08:00', grace:15 } }, loaded);
+  renderAll();
+}, err => console.error(err));
 
 function initials(name){
   const parts = name.trim().split(' ');
