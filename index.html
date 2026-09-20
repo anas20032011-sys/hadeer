@@ -293,13 +293,19 @@
   <section id="monthly">
     <div class="summary-strip" id="summaryStrip"></div>
     <div class="card">
-      <div class="settings-row" style="margin-bottom:14px;">
+      <div class="settings-row" style="margin-bottom:8px;">
         <label>من:</label>
-        <input type="date" id="periodStart">
-        <span class="pin-tag" id="periodStartHijri">—</span>
+        <select id="startHDay"></select>
+        <select id="startHMonth"></select>
+        <input type="number" id="startHYear" style="width:85px;" inputmode="numeric">
+        <span class="pin-tag" id="startGregorian">—</span>
+      </div>
+      <div class="settings-row" style="margin-bottom:14px;">
         <label>إلى:</label>
-        <input type="date" id="periodEnd">
-        <span class="pin-tag" id="periodEndHijri">—</span>
+        <select id="endHDay"></select>
+        <select id="endHMonth"></select>
+        <input type="number" id="endHYear" style="width:85px;" inputmode="numeric">
+        <span class="pin-tag" id="endGregorian">—</span>
       </div>
       <div class="settings-row" style="margin-bottom:16px;">
         <input type="text" id="periodName" placeholder="اسم الفترة (مثال: الترم الأول 1447هـ)" style="flex:1; min-width:200px;">
@@ -315,7 +321,7 @@
         </div>
         <button class="primary-btn" id="exportExcelBtn">تصدير Excel</button>
       </div>
-      <div class="note" style="margin-top:0; margin-bottom:12px;">التواريخ المعروضة بالتقرير بالتقويم الهجري. أيام الأسبوع تُحسب حسب أيام الدوام المحددة في "إدارة المشرفين".</div>
+      <div class="note" style="margin-top:0; margin-bottom:12px;">أدخل بداية ونهاية الفترة بالتقويم الهجري. أيام الأسبوع تُحسب حسب أيام الدوام المحددة في "إدارة المشرفين".</div>
       <div class="heatmap-wrap"><table class="heatmap" id="heatmapTable"></table></div>
     </div>
   </section>
@@ -506,6 +512,7 @@ function renderDaily(){
         ${['present','absent','late','excused'].map(s => `
           <button data-status="${s}" data-sup="${sup.id}" class="${current===s ? 'sel-'+s : ''}">${statusLabel[s]}</button>
         `).join('')}
+        ${current ? `<button data-del="${sup.id}" class="icon-btn del-btn" style="width:auto; padding:7px 12px;" title="حذف التحضير">حذف</button>` : ''}
       </div>
     `;
     list.appendChild(row);
@@ -513,6 +520,18 @@ function renderDaily(){
 }
 
 $('#dailyList').addEventListener('click', e => {
+  const delBtn = e.target.closest('button[data-del]');
+  if(delBtn){
+    const supId = delBtn.dataset.del;
+    const dateStr = $('#dailyDate').value;
+    const key = supId + ':' + dateStr;
+    delete state.records[key];
+    delete state.records[key + ':time'];
+    saveState();
+    renderDaily();
+    showToast('تم حذف التحضير');
+    return;
+  }
   const btn = e.target.closest('button[data-status]');
   if(!btn) return;
   const supId = btn.dataset.sup;
@@ -524,6 +543,7 @@ $('#dailyList').addEventListener('click', e => {
     delete state.records[key + ':time'];
   } else {
     state.records[key] = status;
+    state.records[key + ':time'] = new Date().toLocaleTimeString('ar-SA', { hour:'2-digit', minute:'2-digit' });
   }
   saveState();
   renderDaily();
@@ -581,21 +601,66 @@ function dateRangeList(startStr, endStr){
   return list;
 }
 
+// تحويل تاريخ هجري (سنة، شهر، يوم) إلى أقرب تاريخ ميلادي مطابق
+function hijriToGregorian(hy, hm, hd){
+  const approxDays = Math.round((hy - 1) * 354.36707 + (hm - 1) * 29.5006 + hd);
+  const epoch = new Date(Date.UTC(622, 6, 19));
+  const seed = new Date(epoch.getTime() + approxDays * 86400000);
+  for(let w = 10; w <= 60; w += 20){
+    for(let offset = -w; offset <= w; offset++){
+      const candidate = new Date(seed.getTime() + offset * 86400000);
+      const h = toHijri(candidate);
+      if(h && Number(h.year)===hy && Number(h.month)===hm && Number(h.day)===hd){
+        return candidate;
+      }
+    }
+  }
+  return null;
+}
+
+const HIJRI_MONTHS = ['محرم','صفر','ربيع الأول','ربيع الآخر','جمادى الأولى','جمادى الآخرة','رجب','شعبان','رمضان','شوال','ذو القعدة','ذو الحجة'];
+
+function fillHijriSelectors(prefix, defaultHijri){
+  const daySel = $('#' + prefix + 'HDay');
+  const monthSel = $('#' + prefix + 'HMonth');
+  const yearInput = $('#' + prefix + 'HYear');
+  daySel.innerHTML = Array.from({length:30}, (_,i) => `<option value="${i+1}">${i+1}</option>`).join('');
+  monthSel.innerHTML = HIJRI_MONTHS.map((name,i) => `<option value="${i+1}">${name}</option>`).join('');
+  daySel.value = defaultHijri.day;
+  monthSel.value = defaultHijri.month;
+  yearInput.value = defaultHijri.year;
+}
+
+function getGregorianFromHijriInputs(prefix){
+  const hd = Number($('#' + prefix + 'HDay').value);
+  const hm = Number($('#' + prefix + 'HMonth').value);
+  const hy = Number($('#' + prefix + 'HYear').value);
+  if(!hd || !hm || !hy) return null;
+  return hijriToGregorian(hy, hm, hd);
+}
+
 function updateHijriLabels(){
-  const s = $('#periodStart').value;
-  const e = $('#periodEnd').value;
-  $('#periodStartHijri').textContent = s ? hijriFull(new Date(s + 'T00:00:00')) : '—';
-  $('#periodEndHijri').textContent = e ? hijriFull(new Date(e + 'T00:00:00')) : '—';
+  const startG = getGregorianFromHijriInputs('start');
+  const endG = getGregorianFromHijriInputs('end');
+  $('#startGregorian').textContent = startG ? 'الموافق: ' + fmtDate(startG) : 'تاريخ غير صحيح';
+  $('#endGregorian').textContent = endG ? 'الموافق: ' + fmtDate(endG) : 'تاريخ غير صحيح';
 }
 
 function renderMonthly(){
-  const startStr = $('#periodStart').value;
-  const endStr = $('#periodEnd').value;
+  const startG = getGregorianFromHijriInputs('start');
+  const endG = getGregorianFromHijriInputs('end');
   const table = $('#heatmapTable');
 
-  if(!startStr || !endStr || startStr > endStr){
+  if(!startG || !endG){
     table.innerHTML = '';
-    $('#summaryStrip').innerHTML = `<div class="card" style="flex:1;"><div class="empty-state"><div class="big">حدّد بداية ونهاية الفترة</div>اختر تاريخ البداية والنهاية ثم اضغط "عرض التقرير"</div></div>`;
+    $('#summaryStrip').innerHTML = `<div class="card" style="flex:1;"><div class="empty-state"><div class="big">تحقق من التاريخ الهجري المدخل</div>أحد التاريخين غير صحيح، تأكد من اليوم والشهر والسنة</div></div>`;
+    return;
+  }
+  const startStr = fmtDate(startG);
+  const endStr = fmtDate(endG);
+  if(startStr > endStr){
+    table.innerHTML = '';
+    $('#summaryStrip').innerHTML = `<div class="card" style="flex:1;"><div class="empty-state"><div class="big">تاريخ البداية بعد النهاية</div>تأكد إن تاريخ البداية قبل تاريخ النهاية</div></div>`;
     return;
   }
   if(state.supervisors.length === 0){
@@ -654,8 +719,9 @@ $('#heatmapTable').addEventListener('click', e => {
   renderMonthly();
 });
 
-$('#periodStart').addEventListener('change', updateHijriLabels);
-$('#periodEnd').addEventListener('change', updateHijriLabels);
+['startHDay','startHMonth','startHYear','endHDay','endHMonth','endHYear'].forEach(id => {
+  $('#' + id).addEventListener('change', updateHijriLabels);
+});
 $('#showPeriodBtn').addEventListener('click', renderMonthly);
 
 // ---------- EXPORT TO EXCEL ----------
@@ -664,12 +730,14 @@ $('#exportExcelBtn').addEventListener('click', () => {
     showToast('ما فيه بيانات للتصدير');
     return;
   }
-  const startStr = $('#periodStart').value;
-  const endStr = $('#periodEnd').value;
-  if(!startStr || !endStr || startStr > endStr){
-    showToast('حدّد بداية ونهاية الفترة أول');
+  const startG = getGregorianFromHijriInputs('start');
+  const endG = getGregorianFromHijriInputs('end');
+  if(!startG || !endG || fmtDate(startG) > fmtDate(endG)){
+    showToast('تحقق من التاريخ الهجري المدخل');
     return;
   }
+  const startStr = fmtDate(startG);
+  const endStr = fmtDate(endG);
   const days = dateRangeList(startStr, endStr);
 
   // ورقة 1: جدول يومي تفصيلي بالتاريخ الهجري
@@ -864,9 +932,9 @@ function renderAll(){
 // init
 $('#dailyDate').value = fmtDate(currentDate);
 {
-  const firstOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-  $('#periodStart').value = fmtDate(firstOfMonth);
-  $('#periodEnd').value = fmtDate(currentMonth);
+  const todayHijri = toHijri(new Date()) || { day:1, month:1, year:1447 };
+  fillHijriSelectors('start', todayHijri);
+  fillHijriSelectors('end', todayHijri);
   updateHijriLabels();
 }
 tick();
