@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>تحضير المشرفين</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%0A%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2215%22%20fill%3D%22%232D5C4F%22/%3E%0A%3Crect%20x%3D%2216%22%20y%3D%229%22%20width%3D%2232%22%20height%3D%229%22%20rx%3D%223%22%20fill%3D%22%23DCE9E4%22/%3E%0A%3Crect%20x%3D%2212%22%20y%3D%2214%22%20width%3D%2240%22%20height%3D%2244%22%20rx%3D%227%22%20fill%3D%22%23FFFFFF%22/%3E%0A%3Crect%20x%3D%2219%22%20y%3D%2225%22%20width%3D%2226%22%20height%3D%224%22%20rx%3D%222%22%20fill%3D%22%23D8DEE4%22/%3E%0A%3Crect%20x%3D%2219%22%20y%3D%2234%22%20width%3D%2218%22%20height%3D%224%22%20rx%3D%222%22%20fill%3D%22%23D8DEE4%22/%3E%0A%3Cpath%20d%3D%22M19%2045l6%206%2012-12%22%20stroke%3D%22%232E9E6C%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20fill%3D%22none%22/%3E%0A%3C/svg%3E">
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.13.1/firebase-app-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.13.1/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/firebase@10.13.1/firebase-auth-compat.js"></script>
@@ -263,11 +264,10 @@
     <div class="card checkin-box">
       <div class="clock" id="liveClock">--:--</div>
       <div class="today" id="liveDate">—</div>
-      <select id="checkinSupSelect"></select>
-      <input type="password" id="checkinPin" placeholder="أدخل الرمز السري (٤ أرقام)" maxlength="4" inputmode="numeric">
-      <button class="primary-btn" id="checkinBtn">تسجيل حضوري الآن</button>
+      <input type="password" id="checkinPin" placeholder="أدخل رمزك السري (٤ أرقام)" maxlength="4" inputmode="numeric" style="text-align:center; font-size:22px; letter-spacing:10px;">
+      <button class="primary-btn" id="checkinBtn">تسجيل</button>
       <div id="checkinResult"></div>
-      <div class="note">هذا القسم مخصص للمشرف لتسجيل حضوره بنفسه من جواله. كل مشرف له اسم ورمز سري خاص، يضيفهما المسؤول من تبويب "إدارة المشرفين".</div>
+      <div class="note">أدخل رمزك السري الخاص فقط ثم اضغط "تسجيل" — بيظهر اسمك تلقائيًا مع وقت التسجيل. الرمز يضيفه لك المسؤول من تبويب "إدارة المشرفين".</div>
     </div>
   </section>
 
@@ -436,49 +436,70 @@ function tick(){
   const now = new Date();
   $('#liveClock').textContent = now.toLocaleTimeString('ar-SA', { hour:'2-digit', minute:'2-digit' });
   $('#liveDate').textContent = now.toLocaleDateString('ar-SA-u-ca-islamic-umalqura', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  runEndOfDayAutoProcessing();
 }
 setInterval(tick, 1000);
 
-function updateCheckinButtonLabel(){
-  const supId = $('#checkinSupSelect').value;
-  const btn = $('#checkinBtn');
-  if(!supId){ btn.textContent = 'تسجيل حضوري الآن'; return; }
-  const dateStr = fmtDate(new Date());
-  const key = supId + ':' + dateStr;
-  const hasIn = !!state.records[key + ':time'];
-  const hasOut = !!state.records[key + ':outtime'];
-  if(!hasIn) btn.textContent = 'تسجيل حضوري الآن';
-  else if(!hasOut) btn.textContent = 'تسجيل خروجي الآن';
-  else btn.textContent = 'تم تسجيل الحضور والخروج';
+// ---------- إغلاق تلقائي لنهاية اليوم ----------
+// عند تجاوز وقت الخروج المعتمد: تسجيل خروج تلقائي لمن حضر، وتسجيل غياب لمن لم يحضر.
+// يعمل هذا عند فتح أي شخص (إدمن أو مشرف) للموقع بعد الوقت المحدد، لأن الموقع ثابت بدون خادم خلفي.
+function runEndOfDayAutoProcessing(){
+  if(!state.supervisors || state.supervisors.length === 0) return;
+  const now = new Date();
+  const workDays = (state.settings.workDays && state.settings.workDays.length) ? state.settings.workDays : [0,1,2,3,4];
+  if(!workDays.includes(now.getDay())) return;
+
+  const [eh, em] = (state.settings.endTime || '14:00').split(':').map(Number);
+  const endMinutes = eh * 60 + em;
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  if(nowMinutes < endMinutes) return;
+
+  const dateStr = fmtDate(now);
+  const flagKey = dateStr + ':autoClosed';
+  if(state.records[flagKey]) return;
+
+  const endTimeArabic = new Date(now.getFullYear(), now.getMonth(), now.getDate(), eh, em)
+    .toLocaleTimeString('ar-SA', { hour:'2-digit', minute:'2-digit' });
+
+  let changed = false;
+  state.supervisors.forEach(sup => {
+    const key = sup.id + ':' + dateStr;
+    const status = state.records[key];
+    const hasIn = !!state.records[key + ':time'];
+    const hasOut = !!state.records[key + ':outtime'];
+
+    if(!status && !hasIn){
+      // لم يسجل حضوره إطلاقًا اليوم → غائب تلقائيًا
+      state.records[key] = 'absent';
+      changed = true;
+    } else if(hasIn && !hasOut){
+      // سجل حضوره ولم يسجل خروجه → خروج تلقائي بوقت نهاية الدوام
+      state.records[key + ':outtime'] = endTimeArabic;
+      changed = true;
+    }
+  });
+
+  state.records[flagKey] = true;
+  changed = true;
+
+  if(changed) saveState();
 }
 
-function renderCheckinSelect(){
-  const sel = $('#checkinSupSelect');
+function updateCheckinAvailability(){
   const workDays = (state.settings.workDays && state.settings.workDays.length) ? state.settings.workDays : [0,1,2,3,4];
   const isOffDay = !workDays.includes(new Date().getDay());
   $('#checkinPin').disabled = isOffDay;
   $('#checkinBtn').disabled = isOffDay;
-  sel.disabled = isOffDay;
   if(isOffDay){
     $('#checkinResult').innerHTML = '<div class="checkin-result info">اليوم إجازة أسبوعية، ما يمكن تسجيل الحضور</div>';
   } else if($('#checkinResult').textContent.includes('إجازة أسبوعية')){
     $('#checkinResult').innerHTML = '';
   }
-  if(state.supervisors.length === 0){
-    sel.innerHTML = '<option value="">لا يوجد مشرفون مسجّلون بعد</option>';
-    return;
-  }
-  const prevVal = sel.value;
-  sel.innerHTML = '<option value="">اختر اسمك</option>' +
-    state.supervisors.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-  sel.value = prevVal;
-  if(!isOffDay) updateCheckinButtonLabel();
 }
 
-$('#checkinSupSelect').addEventListener('change', updateCheckinButtonLabel);
+$('#checkinPin').addEventListener('keydown', e => { if(e.key === 'Enter') $('#checkinBtn').click(); });
 
 $('#checkinBtn').addEventListener('click', () => {
-  const supId = $('#checkinSupSelect').value;
   const pin = $('#checkinPin').value.trim();
   const resultBox = $('#checkinResult');
 
@@ -490,27 +511,24 @@ $('#checkinBtn').addEventListener('click', () => {
     return;
   }
 
-  if(!supId){
-    resultBox.innerHTML = '<div class="checkin-result err">اختر اسمك أولًا</div>';
+  if(!/^\d{4}$/.test(pin)){
+    resultBox.innerHTML = '<div class="checkin-result err">أدخل رمزك السري المكوّن من ٤ أرقام</div>';
     return;
   }
-  const sup = state.supervisors.find(s => s.id === supId);
+  const sup = state.supervisors.find(s => s.pin === pin);
   if(!sup){
-    resultBox.innerHTML = '<div class="checkin-result err">تعذر إيجاد المشرف</div>';
-    return;
-  }
-  if(pin !== sup.pin){
-    resultBox.innerHTML = '<div class="checkin-result err">الرمز السري غير صحيح</div>';
+    resultBox.innerHTML = '<div class="checkin-result err">الرمز غير صحيح</div>';
     return;
   }
 
   const dateStr = fmtDate(now);
-  const key = supId + ':' + dateStr;
+  const key = sup.id + ':' + dateStr;
   const hasIn = !!state.records[key + ':time'];
   const hasOut = !!state.records[key + ':outtime'];
 
   if(hasIn && hasOut){
-    resultBox.innerHTML = `<div class="checkin-result info">تم تسجيل حضورك وخروجك اليوم مسبقًا</div>`;
+    resultBox.innerHTML = `<div class="checkin-result info">حيّاك ${sup.name} — تم تسجيل حضورك وخروجك اليوم مسبقًا</div>`;
+    $('#checkinPin').value = '';
     return;
   }
 
@@ -525,7 +543,7 @@ $('#checkinBtn').addEventListener('click', () => {
     if(nowMinutes < earliestAllowed){
       const earliestH = String(Math.floor(((earliestAllowed % 1440) + 1440) % 1440 / 60)).padStart(2,'0');
       const earliestM = String(((earliestAllowed % 60) + 60) % 60).padStart(2,'0');
-      resultBox.innerHTML = `<div class="checkin-result info">التسجيل ما يفتح إلا الساعة ${earliestH}:${earliestM} (قبل بداية الدوام بربع ساعة)</div>`;
+      resultBox.innerHTML = `<div class="checkin-result info">حيّاك ${sup.name} — التسجيل ما يفتح إلا الساعة ${earliestH}:${earliestM} (قبل بداية الدوام بربع ساعة)</div>`;
       return;
     }
 
@@ -537,19 +555,18 @@ $('#checkinBtn').addEventListener('click', () => {
 
     $('#checkinPin').value = '';
     if(status === 'present'){
-      resultBox.innerHTML = `<div class="checkin-result ok">تم تسجيل حضورك بنجاح، الساعة ${state.records[key + ':time']}</div>`;
+      resultBox.innerHTML = `<div class="checkin-result ok">تم تسجيل حضور ${sup.name} بنجاح، الساعة ${state.records[key + ':time']}</div>`;
     } else {
-      resultBox.innerHTML = `<div class="checkin-result late">تم تسجيل حضورك متأخرًا، الساعة ${state.records[key + ':time']}</div>`;
+      resultBox.innerHTML = `<div class="checkin-result late">تم تسجيل حضور ${sup.name} متأخرًا، الساعة ${state.records[key + ':time']}</div>`;
     }
   } else {
     // تسجيل الخروج
     state.records[key + ':outtime'] = now.toLocaleTimeString('ar-SA', { hour:'2-digit', minute:'2-digit' });
     saveState();
     $('#checkinPin').value = '';
-    resultBox.innerHTML = `<div class="checkin-result ok">تم تسجيل خروجك، الساعة ${state.records[key + ':outtime']}</div>`;
+    resultBox.innerHTML = `<div class="checkin-result ok">تم تسجيل خروج ${sup.name}، الساعة ${state.records[key + ':outtime']}</div>`;
   }
 
-  updateCheckinButtonLabel();
   renderDaily();
   renderMonthly();
 });
@@ -974,6 +991,7 @@ function addSupervisor(){
   let pin = pinInput.value.trim();
   if(!name) { showToast('اكتب اسم المشرف'); return; }
   if(!/^\d{4}$/.test(pin)) { showToast('الرمز السري يجب أن يكون ٤ أرقام'); return; }
+  if(state.supervisors.some(s => s.pin === pin)) { showToast('هذا الرمز مستخدم من مشرف آخر، اختر رمزًا مختلفًا'); return; }
   state.supervisors.push({ id: 'sup_' + Date.now(), name, pin });
   nameInput.value = '';
   pinInput.value = '';
@@ -999,8 +1017,10 @@ $('#manageList').addEventListener('click', e => {
     const sup = state.supervisors.find(s => s.id === id);
     const newPin = prompt('أدخل الرمز السري الجديد (٤ أرقام):', sup.pin);
     if(newPin === null) return;
-    if(!/^\d{4}$/.test(newPin.trim())){ showToast('الرمز يجب أن يكون ٤ أرقام'); return; }
-    sup.pin = newPin.trim();
+    const cleanPin = newPin.trim();
+    if(!/^\d{4}$/.test(cleanPin)){ showToast('الرمز يجب أن يكون ٤ أرقام'); return; }
+    if(state.supervisors.some(s => s.id !== id && s.pin === cleanPin)){ showToast('هذا الرمز مستخدم من مشرف آخر'); return; }
+    sup.pin = cleanPin;
     saveState();
     renderManage();
     showToast('تم تحديث الرمز');
@@ -1056,7 +1076,7 @@ $('#loginBtn').addEventListener('click', () => {
 });
 
 function renderAll(){
-  renderCheckinSelect();
+  updateCheckinAvailability();
   renderDaily();
   renderMonthly();
   renderManage();
