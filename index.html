@@ -853,16 +853,24 @@ $('#exportExcelBtn').addEventListener('click', () => {
     const row = [sup.name];
     const totals = { present:0, absent:0, late:0, excused:0, earlyLeave:0 };
     days.forEach(dateStr => {
-      const status = state.records[sup.id + ':' + dateStr];
+      const key = sup.id + ':' + dateStr;
+      const status = state.records[key];
+      const inTime = state.records[key + ':time'];
+      const outTime = state.records[key + ':outtime'];
       if(status) totals[status]++;
-      row.push(status ? statusLabel[status] : '');
+      let cell = status ? statusLabel[status] : '';
+      const timeParts = [];
+      if(inTime) timeParts.push('دخول ' + inTime);
+      if(outTime) timeParts.push('خروج ' + outTime);
+      if(timeParts.length) cell += (cell ? ' - ' : '') + timeParts.join(' / ');
+      row.push(cell);
     });
     row.push(totals.present, totals.absent, totals.late, totals.excused, totals.earlyLeave);
     rows.push(row);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{ wch: 20 }, ...Array(days.length).fill({ wch: 12 }), { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
+  ws['!cols'] = [{ wch: 20 }, ...Array(days.length).fill({ wch: 22 }), { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'تقرير الحضور');
