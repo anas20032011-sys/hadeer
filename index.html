@@ -60,6 +60,8 @@
     --late-bg:#FBF1DD;
     --excused:#6B7C93;
     --excused-bg:#EBEEF2;
+    --permit:#3E7CB1;
+    --permit-bg:#E3EEF7;
     --empty:#D8DEE4;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -131,6 +133,7 @@
   .status-btns button.sel-absent{background:var(--absent-bg); color:var(--absent); border-color:var(--absent);}
   .status-btns button.sel-late{background:var(--late-bg); color:var(--late); border-color:var(--late);}
   .status-btns button.sel-excused{background:var(--excused-bg); color:var(--excused); border-color:var(--excused);}
+  .status-btns button.sel-earlyLeave{background:var(--permit-bg); color:var(--permit); border-color:var(--permit);}
 
   .empty-state{ text-align:center; padding:50px 20px; color:var(--ink-soft); }
   .empty-state .big{font-size:15px; font-weight:700; color:var(--ink); margin-bottom:6px;}
@@ -159,6 +162,7 @@
   .cell.absent{background:var(--absent);}
   .cell.late{background:var(--late);}
   .cell.excused{background:var(--excused);}
+  .cell.earlyLeave{background:var(--permit);}
   .cell.weekend{opacity:0.35;}
 
   .add-row{display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap;}
@@ -273,7 +277,8 @@
       <div class="toolbar">
         <div class="date-nav">
           <button id="prevDay">‹</button>
-          <input type="date" id="dailyDate">
+          <input type="date" id="dailyDate" style="display:none;">
+          <span id="dailyDateLabel" class="pin-tag" style="font-size:13px; padding:8px 14px;">—</span>
           <button id="nextDay">›</button>
           <button id="todayBtn" style="width:auto; padding:0 12px;">اليوم</button>
           <span id="offDayBadge" class="weekend-badge" style="display:none; margin-top:0;">إجازة أسبوعية</span>
@@ -283,6 +288,7 @@
           <span><i class="dot" style="background:var(--absent)"></i>غائب</span>
           <span><i class="dot" style="background:var(--late)"></i>متأخر</span>
           <span><i class="dot" style="background:var(--excused)"></i>إجازة</span>
+          <span><i class="dot" style="background:var(--permit)"></i>مستأذن</span>
         </div>
       </div>
       <div id="dailyList"></div>
@@ -317,6 +323,7 @@
           <span><i class="dot" style="background:var(--absent)"></i>غائب</span>
           <span><i class="dot" style="background:var(--late)"></i>متأخر</span>
           <span><i class="dot" style="background:var(--excused)"></i>إجازة</span>
+          <span><i class="dot" style="background:var(--permit)"></i>مستأذن</span>
           <span><i class="dot" style="background:var(--empty)"></i>لم يسجل</span>
         </div>
         <button class="primary-btn" id="exportExcelBtn">تصدير Excel</button>
@@ -332,11 +339,15 @@
       <div class="settings-block">
         <div class="block-title">أيام الدوام الرسمية</div>
         <div class="day-chips" id="dayChips"></div>
-        <div class="settings-row">
+        <div class="settings-row" style="margin-bottom:10px;">
           <label>بداية الدوام:</label>
           <input type="time" id="startTimeInput">
           <label>مهلة السماح (دقيقة):</label>
           <input type="text" id="graceInput" style="width:70px;" inputmode="numeric">
+        </div>
+        <div class="settings-row">
+          <label>وقت الخروج المعتمد:</label>
+          <input type="time" id="endTimeInput">
           <button class="primary-btn" id="saveSettingsBtn">حفظ الإعدادات</button>
         </div>
       </div>
@@ -369,13 +380,13 @@ const auth = firebase.auth();
 const docRef = db.collection('hadeer').doc('appData');
 let isAdmin = false;
 
-let state = { supervisors: [], records: {}, settings: { startTime: '08:00', grace: 15, workDays: [0,1,2,3,4] } };
+let state = { supervisors: [], records: {}, settings: { startTime: '08:00', endTime: '14:00', grace: 15, workDays: [0,1,2,3,4] } };
 let currentDate = new Date();
 let currentMonth = new Date();
 
 const $ = sel => document.querySelector(sel);
 const fmtDate = d => d.toISOString().slice(0,10);
-const statusLabel = { present:'حاضر', absent:'غائب', late:'متأخر', excused:'إجازة' };
+const statusLabel = { present:'حاضر', absent:'غائب', late:'متأخر', excused:'إجازة', earlyLeave:'مستأذن' };
 
 function showToast(msg){
   const t = $('#toast');
@@ -390,7 +401,7 @@ async function loadState(){
     if(snap.exists){
       const loaded = snap.data();
       state = Object.assign({ supervisors:[], records:{}, settings:{} }, loaded);
-      state.settings = Object.assign({ startTime:'08:00', grace:15, workDays:[0,1,2,3,4] }, state.settings || {});
+      state.settings = Object.assign({ startTime:'08:00', endTime:'14:00', grace:15, workDays:[0,1,2,3,4] }, state.settings || {});
     }
   }catch(e){
     showToast('تعذر الاتصال بقاعدة البيانات');
@@ -411,7 +422,7 @@ docRef.onSnapshot(snap => {
   if(!snap.exists) return;
   const loaded = snap.data();
   state = Object.assign({ supervisors:[], records:{}, settings:{} }, loaded);
-  state.settings = Object.assign({ startTime:'08:00', grace:15, workDays:[0,1,2,3,4] }, state.settings || {});
+  state.settings = Object.assign({ startTime:'08:00', endTime:'14:00', grace:15, workDays:[0,1,2,3,4] }, state.settings || {});
   renderAll();
 }, err => console.error(err));
 
@@ -424,9 +435,22 @@ function initials(name){
 function tick(){
   const now = new Date();
   $('#liveClock').textContent = now.toLocaleTimeString('ar-SA', { hour:'2-digit', minute:'2-digit' });
-  $('#liveDate').textContent = now.toLocaleDateString('ar-SA', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  $('#liveDate').textContent = now.toLocaleDateString('ar-SA-u-ca-islamic-umalqura', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
 }
 setInterval(tick, 1000);
+
+function updateCheckinButtonLabel(){
+  const supId = $('#checkinSupSelect').value;
+  const btn = $('#checkinBtn');
+  if(!supId){ btn.textContent = 'تسجيل حضوري الآن'; return; }
+  const dateStr = fmtDate(new Date());
+  const key = supId + ':' + dateStr;
+  const hasIn = !!state.records[key + ':time'];
+  const hasOut = !!state.records[key + ':outtime'];
+  if(!hasIn) btn.textContent = 'تسجيل حضوري الآن';
+  else if(!hasOut) btn.textContent = 'تسجيل خروجي الآن';
+  else btn.textContent = 'تم تسجيل الحضور والخروج';
+}
 
 function renderCheckinSelect(){
   const sel = $('#checkinSupSelect');
@@ -444,9 +468,14 @@ function renderCheckinSelect(){
     sel.innerHTML = '<option value="">لا يوجد مشرفون مسجّلون بعد</option>';
     return;
   }
+  const prevVal = sel.value;
   sel.innerHTML = '<option value="">اختر اسمك</option>' +
     state.supervisors.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  sel.value = prevVal;
+  if(!isOffDay) updateCheckinButtonLabel();
 }
+
+$('#checkinSupSelect').addEventListener('change', updateCheckinButtonLabel);
 
 $('#checkinBtn').addEventListener('click', () => {
   const supId = $('#checkinSupSelect').value;
@@ -477,30 +506,41 @@ $('#checkinBtn').addEventListener('click', () => {
 
   const dateStr = fmtDate(now);
   const key = supId + ':' + dateStr;
+  const hasIn = !!state.records[key + ':time'];
+  const hasOut = !!state.records[key + ':outtime'];
 
-  if(state.records[key]){
-    const t = state.records[key + ':time'] || '';
-    resultBox.innerHTML = `<div class="checkin-result info">تم تسجيل حضورك اليوم مسبقًا${t ? ' الساعة ' + t : ''}</div>`;
+  if(hasIn && hasOut){
+    resultBox.innerHTML = `<div class="checkin-result info">تم تسجيل حضورك وخروجك اليوم مسبقًا</div>`;
     return;
   }
 
-  // تحديد الحالة بناءً على وقت بداية الدوام + مهلة السماح
-  const [sh, sm] = (state.settings.startTime || '08:00').split(':').map(Number);
-  const startMinutes = sh * 60 + sm;
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
-  const grace = Number(state.settings.grace) || 0;
-  const status = (nowMinutes > startMinutes + grace) ? 'late' : 'present';
+  if(!hasIn){
+    // تسجيل الحضور: تحديد الحالة بناءً على وقت بداية الدوام + مهلة السماح
+    const [sh, sm] = (state.settings.startTime || '08:00').split(':').map(Number);
+    const startMinutes = sh * 60 + sm;
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const grace = Number(state.settings.grace) || 0;
+    const status = (nowMinutes > startMinutes + grace) ? 'late' : 'present';
 
-  state.records[key] = status;
-  state.records[key + ':time'] = now.toLocaleTimeString('ar-SA', { hour:'2-digit', minute:'2-digit' });
-  saveState();
+    state.records[key] = status;
+    state.records[key + ':time'] = now.toLocaleTimeString('ar-SA', { hour:'2-digit', minute:'2-digit' });
+    saveState();
 
-  $('#checkinPin').value = '';
-  if(status === 'present'){
-    resultBox.innerHTML = `<div class="checkin-result ok">تم تسجيل حضورك بنجاح، الساعة ${state.records[key + ':time']}</div>`;
+    $('#checkinPin').value = '';
+    if(status === 'present'){
+      resultBox.innerHTML = `<div class="checkin-result ok">تم تسجيل حضورك بنجاح، الساعة ${state.records[key + ':time']}</div>`;
+    } else {
+      resultBox.innerHTML = `<div class="checkin-result late">تم تسجيل حضورك متأخرًا، الساعة ${state.records[key + ':time']}</div>`;
+    }
   } else {
-    resultBox.innerHTML = `<div class="checkin-result late">تم تسجيل حضورك متأخرًا، الساعة ${state.records[key + ':time']}</div>`;
+    // تسجيل الخروج
+    state.records[key + ':outtime'] = now.toLocaleTimeString('ar-SA', { hour:'2-digit', minute:'2-digit' });
+    saveState();
+    $('#checkinPin').value = '';
+    resultBox.innerHTML = `<div class="checkin-result ok">تم تسجيل خروجك، الساعة ${state.records[key + ':outtime']}</div>`;
   }
+
+  updateCheckinButtonLabel();
   renderDaily();
   renderMonthly();
 });
@@ -512,6 +552,7 @@ function renderDaily(){
   const dow = new Date(dateStr).getDay();
   const workDays = (state.settings.workDays && state.settings.workDays.length) ? state.settings.workDays : [0,1,2,3,4];
   const isOffDay = !workDays.includes(dow);
+  $('#dailyDateLabel').textContent = new Date(dateStr + 'T00:00:00').toLocaleDateString('ar-SA-u-ca-islamic-umalqura', { weekday:'short', day:'numeric', month:'long', year:'numeric' });
   $('#offDayBadge').style.display = isOffDay ? 'inline-block' : 'none';
   list.innerHTML = '';
   if(isOffDay){
@@ -526,19 +567,43 @@ function renderDaily(){
     const key = sup.id + ':' + dateStr;
     const current = state.records[key];
     const timeTag = state.records[key + ':time'];
+    const outTag = state.records[key + ':outtime'];
+    const endTime = state.settings.endTime || '14:00';
+    const leftEarly = outTag && (outTag2min(outTag) < timeToMin(endTime)) && current !== 'earlyLeave';
     const row = document.createElement('div');
     row.className = 'sup-row';
     row.innerHTML = `
-      <div class="sup-name"><span class="avatar">${initials(sup.name)}</span>${sup.name}${timeTag ? `<span class="pin-tag" style="font-weight:500;">${timeTag}</span>` : ''}</div>
+      <div class="sup-name"><span class="avatar">${initials(sup.name)}</span>${sup.name}
+        ${timeTag ? `<span class="pin-tag" style="font-weight:500;">دخول ${timeTag}</span>` : ''}
+        ${outTag ? `<span class="pin-tag" style="font-weight:500;">خروج ${outTag}</span>` : ''}
+      </div>
       <div class="status-btns">
-        ${['present','absent','late','excused'].map(s => `
+        ${['present','absent','late','excused','earlyLeave'].map(s => `
           <button data-status="${s}" data-sup="${sup.id}" class="${current===s ? 'sel-'+s : ''}">${statusLabel[s]}</button>
         `).join('')}
         ${current ? `<button data-del="${sup.id}" class="icon-btn del-btn" style="width:auto; padding:7px 12px;" title="حذف التحضير">حذف</button>` : ''}
+        ${leftEarly ? `<button data-earlyleave="${sup.id}" class="icon-btn" style="width:auto; padding:7px 12px; background:var(--permit-bg); color:var(--permit);" title="غادر قبل الوقت المعتمد">غادر مبكرًا — وضع مستأذن</button>` : ''}
       </div>
     `;
     list.appendChild(row);
   });
+}
+
+function timeToMin(t){
+  const [h,m] = (t||'00:00').split(':').map(Number);
+  return h*60+m;
+}
+function outTag2min(arabicTimeStr){
+  // تحويل وقت معروض بصيغة عربية (مثال: ٠٢:٣٠ م) إلى دقائق منذ منتصف الليل
+  const toEn = s => s.replace(/[٠-٩]/g, c => '٠١٢٣٤٥٦٧٨٩'.indexOf(c));
+  const m = arabicTimeStr.match(/([\d٠-٩]+):([\d٠-٩]+)\s*(ص|م)?/);
+  if(!m) return 0;
+  let h = Number(toEn(m[1]));
+  const min = Number(toEn(m[2]));
+  const period = m[3];
+  if(period === 'م' && h !== 12) h += 12;
+  if(period === 'ص' && h === 12) h = 0;
+  return h*60+min;
 }
 
 $('#dailyList').addEventListener('click', e => {
@@ -549,9 +614,21 @@ $('#dailyList').addEventListener('click', e => {
     const key = supId + ':' + dateStr;
     delete state.records[key];
     delete state.records[key + ':time'];
+    delete state.records[key + ':outtime'];
     saveState();
     renderDaily();
     showToast('تم حذف التحضير');
+    return;
+  }
+  const earlyBtn = e.target.closest('button[data-earlyleave]');
+  if(earlyBtn){
+    const supId = earlyBtn.dataset.earlyleave;
+    const dateStr = $('#dailyDate').value;
+    const key = supId + ':' + dateStr;
+    state.records[key] = 'earlyLeave';
+    saveState();
+    renderDaily();
+    showToast('تم وضع الحالة: مستأذن');
     return;
   }
   const btn = e.target.closest('button[data-status]');
@@ -563,9 +640,12 @@ $('#dailyList').addEventListener('click', e => {
   if(state.records[key] === status){
     delete state.records[key];
     delete state.records[key + ':time'];
+    delete state.records[key + ':outtime'];
   } else {
     state.records[key] = status;
-    state.records[key + ':time'] = new Date().toLocaleTimeString('ar-SA', { hour:'2-digit', minute:'2-digit' });
+    if(!state.records[key + ':time']){
+      state.records[key + ':time'] = new Date().toLocaleTimeString('ar-SA', { hour:'2-digit', minute:'2-digit' });
+    }
   }
   saveState();
   renderDaily();
@@ -701,7 +781,7 @@ function renderMonthly(){
   thead += '</tr>';
 
   let rows = '';
-  const totals = { present:0, absent:0, late:0, excused:0 };
+  const totals = { present:0, absent:0, late:0, excused:0, earlyLeave:0 };
 
   state.supervisors.forEach(sup => {
     rows += `<tr><td class="name-col">${sup.name}</td>`;
@@ -723,6 +803,7 @@ function renderMonthly(){
     <div class="stat absent"><div class="n">${totals.absent||0}</div><div class="l">أيام غياب</div></div>
     <div class="stat late"><div class="n">${totals.late||0}</div><div class="l">أيام تأخير</div></div>
     <div class="stat"><div class="n">${totals.excused||0}</div><div class="l">أيام إجازة</div></div>
+    <div class="stat"><div class="n">${totals.earlyLeave||0}</div><div class="l">أيام استئذان</div></div>
   `;
 }
 
@@ -732,10 +813,10 @@ $('#heatmapTable').addEventListener('click', e => {
   const supId = cell.dataset.sup;
   const dateStr = cell.dataset.date;
   const key = supId + ':' + dateStr;
-  const order = [undefined, 'present', 'absent', 'late', 'excused'];
+  const order = [undefined, 'present', 'absent', 'late', 'excused', 'earlyLeave'];
   const currentIdx = order.indexOf(state.records[key]);
   const next = order[(currentIdx + 1) % order.length];
-  if(next === undefined){ delete state.records[key]; delete state.records[key + ':time']; }
+  if(next === undefined){ delete state.records[key]; delete state.records[key + ':time']; delete state.records[key + ':outtime']; }
   else{ state.records[key] = next; }
   saveState();
   renderMonthly();
@@ -765,23 +846,23 @@ $('#exportExcelBtn').addEventListener('click', () => {
   // ورقة 1: جدول يومي تفصيلي بالتاريخ الهجري
   const header = ['المشرف'];
   days.forEach(dateStr => header.push(hijriFull(new Date(dateStr + 'T00:00:00'))));
-  header.push('أيام حضور','أيام غياب','أيام تأخير','أيام إجازة');
+  header.push('أيام حضور','أيام غياب','أيام تأخير','أيام إجازة','أيام استئذان');
 
   const rows = [header];
   state.supervisors.forEach(sup => {
     const row = [sup.name];
-    const totals = { present:0, absent:0, late:0, excused:0 };
+    const totals = { present:0, absent:0, late:0, excused:0, earlyLeave:0 };
     days.forEach(dateStr => {
       const status = state.records[sup.id + ':' + dateStr];
       if(status) totals[status]++;
       row.push(status ? statusLabel[status] : '');
     });
-    row.push(totals.present, totals.absent, totals.late, totals.excused);
+    row.push(totals.present, totals.absent, totals.late, totals.excused, totals.earlyLeave);
     rows.push(row);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{ wch: 20 }, ...Array(days.length).fill({ wch: 12 }), { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
+  ws['!cols'] = [{ wch: 20 }, ...Array(days.length).fill({ wch: 12 }), { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'تقرير الحضور');
@@ -818,6 +899,7 @@ $('#dayChips').addEventListener('click', e => {
 
 function renderManage(){
   $('#startTimeInput').value = state.settings.startTime || '08:00';
+  $('#endTimeInput').value = state.settings.endTime || '14:00';
   $('#graceInput').value = state.settings.grace ?? 15;
   renderDayChips();
 
@@ -840,12 +922,14 @@ function renderManage(){
 
 $('#saveSettingsBtn').addEventListener('click', () => {
   const t = $('#startTimeInput').value || '08:00';
+  const et = $('#endTimeInput').value || '14:00';
   const g = Number($('#graceInput').value) || 0;
   if(selectedWorkDays.length === 0){
     showToast('اختر يوم دوام واحد على الأقل');
     return;
   }
   state.settings.startTime = t;
+  state.settings.endTime = et;
   state.settings.grace = g;
   state.settings.workDays = selectedWorkDays.slice().sort();
   saveState();
