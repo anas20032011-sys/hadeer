@@ -520,6 +520,15 @@ $('#checkinBtn').addEventListener('click', () => {
     const startMinutes = sh * 60 + sm;
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     const grace = Number(state.settings.grace) || 0;
+    const earliestAllowed = startMinutes - 15;
+
+    if(nowMinutes < earliestAllowed){
+      const earliestH = String(Math.floor(((earliestAllowed % 1440) + 1440) % 1440 / 60)).padStart(2,'0');
+      const earliestM = String(((earliestAllowed % 60) + 60) % 60).padStart(2,'0');
+      resultBox.innerHTML = `<div class="checkin-result info">التسجيل ما يفتح إلا الساعة ${earliestH}:${earliestM} (قبل بداية الدوام بربع ساعة)</div>`;
+      return;
+    }
+
     const status = (nowMinutes > startMinutes + grace) ? 'late' : 'present';
 
     state.records[key] = status;
@@ -846,12 +855,13 @@ $('#exportExcelBtn').addEventListener('click', () => {
   // ورقة 1: جدول يومي تفصيلي بالتاريخ الهجري
   const header = ['المشرف'];
   days.forEach(dateStr => header.push(hijriFull(new Date(dateStr + 'T00:00:00'))));
-  header.push('أيام حضور','أيام غياب','أيام تأخير','أيام إجازة','أيام استئذان');
+  header.push('أيام حضور','أيام غياب','أيام تأخير','أيام إجازة','أيام استئذان','إجمالي ساعات العمل');
 
   const rows = [header];
   state.supervisors.forEach(sup => {
     const row = [sup.name];
     const totals = { present:0, absent:0, late:0, excused:0, earlyLeave:0 };
+    let totalMinutes = 0;
     days.forEach(dateStr => {
       const key = sup.id + ':' + dateStr;
       const status = state.records[key];
@@ -863,14 +873,23 @@ $('#exportExcelBtn').addEventListener('click', () => {
       if(inTime) timeParts.push('دخول ' + inTime);
       if(outTime) timeParts.push('خروج ' + outTime);
       if(timeParts.length) cell += (cell ? ' - ' : '') + timeParts.join(' / ');
+      if(inTime && outTime){
+        const dayMinutes = outTag2min(outTime) - outTag2min(inTime);
+        if(dayMinutes > 0){
+          totalMinutes += dayMinutes;
+          cell += ` (${Math.floor(dayMinutes/60)}س ${dayMinutes%60}د)`;
+        }
+      }
       row.push(cell);
     });
-    row.push(totals.present, totals.absent, totals.late, totals.excused, totals.earlyLeave);
+    const totalH = Math.floor(totalMinutes/60);
+    const totalM = totalMinutes%60;
+    row.push(totals.present, totals.absent, totals.late, totals.excused, totals.earlyLeave, `${totalH}س ${totalM}د`);
     rows.push(row);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{ wch: 20 }, ...Array(days.length).fill({ wch: 22 }), { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
+  ws['!cols'] = [{ wch: 20 }, ...Array(days.length).fill({ wch: 28 }), { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 16 }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'تقرير الحضور');
