@@ -430,6 +430,16 @@ setInterval(tick, 1000);
 
 function renderCheckinSelect(){
   const sel = $('#checkinSupSelect');
+  const workDays = (state.settings.workDays && state.settings.workDays.length) ? state.settings.workDays : [0,1,2,3,4];
+  const isOffDay = !workDays.includes(new Date().getDay());
+  $('#checkinPin').disabled = isOffDay;
+  $('#checkinBtn').disabled = isOffDay;
+  sel.disabled = isOffDay;
+  if(isOffDay){
+    $('#checkinResult').innerHTML = '<div class="checkin-result info">اليوم إجازة أسبوعية، ما يمكن تسجيل الحضور</div>';
+  } else if($('#checkinResult').textContent.includes('إجازة أسبوعية')){
+    $('#checkinResult').innerHTML = '';
+  }
   if(state.supervisors.length === 0){
     sel.innerHTML = '<option value="">لا يوجد مشرفون مسجّلون بعد</option>';
     return;
@@ -442,6 +452,14 @@ $('#checkinBtn').addEventListener('click', () => {
   const supId = $('#checkinSupSelect').value;
   const pin = $('#checkinPin').value.trim();
   const resultBox = $('#checkinResult');
+
+  const now = new Date();
+  const dow = now.getDay();
+  const workDays = (state.settings.workDays && state.settings.workDays.length) ? state.settings.workDays : [0,1,2,3,4];
+  if(!workDays.includes(dow)){
+    resultBox.innerHTML = '<div class="checkin-result info">اليوم إجازة أسبوعية، ما يمكن تسجيل الحضور</div>';
+    return;
+  }
 
   if(!supId){
     resultBox.innerHTML = '<div class="checkin-result err">اختر اسمك أولًا</div>';
@@ -457,7 +475,6 @@ $('#checkinBtn').addEventListener('click', () => {
     return;
   }
 
-  const now = new Date();
   const dateStr = fmtDate(now);
   const key = supId + ':' + dateStr;
 
@@ -494,8 +511,13 @@ function renderDaily(){
   const dateStr = $('#dailyDate').value;
   const dow = new Date(dateStr).getDay();
   const workDays = (state.settings.workDays && state.settings.workDays.length) ? state.settings.workDays : [0,1,2,3,4];
-  $('#offDayBadge').style.display = workDays.includes(dow) ? 'none' : 'inline-block';
+  const isOffDay = !workDays.includes(dow);
+  $('#offDayBadge').style.display = isOffDay ? 'inline-block' : 'none';
   list.innerHTML = '';
+  if(isOffDay){
+    list.innerHTML = `<div class="empty-state"><div class="big">هذا اليوم إجازة أسبوعية</div>ما يمكن تسجيل تحضير في أيام خارج الدوام الرسمي</div>`;
+    return;
+  }
   if(state.supervisors.length === 0){
     list.innerHTML = `<div class="empty-state"><div class="big">ما فيه مشرفين مضافين بعد</div>روح لتبويب "إدارة المشرفين" وأضفهم أول</div>`;
     return;
