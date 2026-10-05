@@ -281,6 +281,7 @@
           <span id="dailyDateLabel" class="pin-tag" style="font-size:13px; padding:8px 14px;">—</span>
           <button id="nextDay">›</button>
           <button id="todayBtn" style="width:auto; padding:0 12px;">اليوم</button>
+          <button id="closeDayBtn" style="width:auto; padding:0 12px; background:var(--permit-bg); color:var(--permit); border:1.5px solid var(--permit);" title="يسجّل غياب لمن لم يحضر، وخروج تلقائي لمن لم يسجّل خروجه">إغلاق هذا اليوم</button>
           <span id="offDayBadge" class="weekend-badge" style="display:none; margin-top:0;">إجازة أسبوعية</span>
         </div>
         <div class="legend">
@@ -440,9 +441,41 @@ function tick(){
 }
 setInterval(tick, 1000);
 
-// ---------- إغلاق تلقائي لنهاية اليوم ----------
-// عند تجاوز وقت الخروج المعتمد: تسجيل خروج تلقائي لمن حضر، وتسجيل غياب لمن لم يحضر.
-// يعمل هذا عند فتح أي شخص (إدمن أو مشرف) للموقع بعد الوقت المحدد، لأن الموقع ثابت بدون خادم خلفي.
+// ---------- إغلاق يوم عمل: تسجيل خروج تلقائي لمن حضر، وغياب تلقائي لمن لم يحضر ----------
+// core: يطبّق الإغلاق على أي تاريخ (اليوم أو يوم سابق)، يُستخدم تلقائيًا ويدويًا
+function closeDay(dateStr){
+  if(!state.supervisors || state.supervisors.length === 0) return 0;
+  const workDays = (state.settings.workDays && state.settings.workDays.length) ? state.settings.workDays : [0,1,2,3,4];
+  const dow = new Date(dateStr + 'T00:00:00').getDay();
+  if(!workDays.includes(dow)) return -1; // يوم إجازة أسبوعية، لا ينطبق
+
+  const [eh, em] = (state.settings.endTime || '14:00').split(':').map(Number);
+  const endTimeArabic = new Date(2000, 0, 1, eh, em).toLocaleTimeString('ar-SA', { hour:'2-digit', minute:'2-digit' });
+
+  let count = 0;
+  state.supervisors.forEach(sup => {
+    const key = sup.id + ':' + dateStr;
+    const status = state.records[key];
+    const hasIn = !!state.records[key + ':time'];
+    const hasOut = !!state.records[key + ':outtime'];
+
+    if(!status && !hasIn){
+      // لم يسجل حضوره إطلاقًا → غائب تلقائيًا
+      state.records[key] = 'absent';
+      count++;
+    } else if(hasIn && !hasOut){
+      // سجل حضوره ولم يسجل خروجه → خروج تلقائي بوقت نهاية الدوام
+      state.records[key + ':outtime'] = endTimeArabic;
+      count++;
+    }
+  });
+
+  state.records[dateStr + ':autoClosed'] = true;
+  saveState();
+  return count;
+}
+
+// يعمل تلقائيًا عند تجاوز وقت الخروج المعتمد، طالما حد فاتح الموقع (بدون خادم خلفي)
 function runEndOfDayAutoProcessing(){
   if(!state.supervisors || state.supervisors.length === 0) return;
   const now = new Date();
@@ -455,34 +488,8 @@ function runEndOfDayAutoProcessing(){
   if(nowMinutes < endMinutes) return;
 
   const dateStr = fmtDate(now);
-  const flagKey = dateStr + ':autoClosed';
-  if(state.records[flagKey]) return;
-
-  const endTimeArabic = new Date(now.getFullYear(), now.getMonth(), now.getDate(), eh, em)
-    .toLocaleTimeString('ar-SA', { hour:'2-digit', minute:'2-digit' });
-
-  let changed = false;
-  state.supervisors.forEach(sup => {
-    const key = sup.id + ':' + dateStr;
-    const status = state.records[key];
-    const hasIn = !!state.records[key + ':time'];
-    const hasOut = !!state.records[key + ':outtime'];
-
-    if(!status && !hasIn){
-      // لم يسجل حضوره إطلاقًا اليوم → غائب تلقائيًا
-      state.records[key] = 'absent';
-      changed = true;
-    } else if(hasIn && !hasOut){
-      // سجل حضوره ولم يسجل خروجه → خروج تلقائي بوقت نهاية الدوام
-      state.records[key + ':outtime'] = endTimeArabic;
-      changed = true;
-    }
-  });
-
-  state.records[flagKey] = true;
-  changed = true;
-
-  if(changed) saveState();
+  if(state.records[dateStr + ':autoClosed']) return;
+  closeDay(dateStr);
 }
 
 function updateCheckinAvailability(){
@@ -638,6 +645,8 @@ $('#dailyList').addEventListener('click', e => {
     const supId = delBtn.dataset.del;
     const dateStr = $('#dailyDate').value;
     const key = supId + ':' + dateStr;
+    const supName = (state.supervisors.find(s => s.id === supId) || {}).name || '';
+    if(!confirm(`متأكد تبي تحذف تحضير ${supName} لهذا اليوم؟ هذا الإجراء ما يُرجع.`)) return;
     delete state.records[key];
     delete state.records[key + ':time'];
     delete state.records[key + ':outtime'];
@@ -694,6 +703,23 @@ $('#nextDay').addEventListener('click', () => {
 $('#todayBtn').addEventListener('click', () => {
   $('#dailyDate').value = fmtDate(new Date());
   renderDaily();
+});
+
+$('#closeDayBtn').addEventListener('click', () => {
+  const dateStr = $('#dailyDate').value;
+  if(state.supervisors.length === 0){ showToast('ما فيه مشرفين بعد'); return; }
+  const dateLabel = new Date(dateStr + 'T00:00:00').toLocaleDateString('ar-SA-u-ca-islamic-umalqura', { day:'numeric', month:'long', year:'numeric' });
+  if(!confirm(`سيتم تسجيل غياب لكل مشرف لم يسجل حضوره، وخروج تلقائي لمن لم يسجل خروجه، ليوم ${dateLabel}. متابعة؟`)) return;
+  const result = closeDay(dateStr);
+  if(result === -1){
+    showToast('هذا اليوم إجازة أسبوعية، لا ينطبق عليه إغلاق');
+  } else if(result === 0){
+    showToast('لا يوجد شي يحتاج تحديث لهذا اليوم');
+  } else {
+    showToast(`تم تحديث ${result} سجل`);
+  }
+  renderDaily();
+  renderMonthly();
 });
 
 // ---------- MONTHLY TAB ----------
