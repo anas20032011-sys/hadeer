@@ -259,7 +259,8 @@
       <button data-tab="daily" class="admin-only" style="display:none;">التحضير اليومي</button>
       <button data-tab="monthly" class="admin-only" style="display:none;">تقرير الفترة</button>
       <button data-tab="stats" class="admin-only" style="display:none;">الإحصائيات</button>
-      <button data-tab="manage" class="admin-only" style="display:none;">إدارة المشرفين</button>
+      <button data-tab="manage" class="sysadmin-only" style="display:none;">إدارة المشرفين</button>
+      <button data-tab="accounts" class="sysadmin-only" style="display:none;">الحسابات</button>
       <button data-tab="login" id="loginTabBtn">دخول مشرف المتابعة</button>
     </nav>
   </header>
@@ -357,6 +358,27 @@
     </div>
   </section>
 
+  <!-- ACCOUNTS -->
+  <section id="accounts">
+    <div class="card">
+      <div class="block-title" style="font-size:13px; font-weight:700; color:var(--ink-soft); margin-bottom:10px;">إضافة حساب جديد</div>
+      <div class="add-row">
+        <input type="email" id="newAccEmail" placeholder="البريد الإلكتروني" style="direction:ltr; text-align:left;">
+        <input type="text" id="newAccPass" placeholder="كلمة المرور (٦ أحرف فأكثر)" style="direction:ltr; text-align:left; max-width:220px;">
+        <select id="newAccRole">
+          <option value="monitor">مشرف متابعة</option>
+          <option value="admin">مدير النظام</option>
+        </select>
+        <button id="addAccBtn">إنشاء الحساب</button>
+      </div>
+      <div class="note" style="margin-top:-6px; margin-bottom:14px;">
+        <b>مدير النظام:</b> كل الصلاحيات (إدارة المشرفين والإعدادات والحسابات + كل ما يخص مشرف المتابعة).<br>
+        <b>مشرف متابعة:</b> التحضير اليومي، تقرير الفترة، الإحصائيات، التصدير والطباعة.
+      </div>
+      <div id="accountsList"></div>
+    </div>
+  </section>
+
   <!-- STATS -->
   <section id="stats">
     <div class="card">
@@ -427,6 +449,10 @@ const db = firebase.firestore();
 const auth = firebase.auth();
 const docRef = db.collection('hadeer').doc('appData');
 let isAdmin = false;
+let currentRole = null;
+let pendingLoginMsg = '';
+const ROLE_LABELS = { admin:'مدير النظام', monitor:'مشرف متابعة' };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 let state = { supervisors: [], records: {}, settings: { startTime: '08:00', endTime: '14:00', grace: 15, lateAlert: 3, workDays: [0,1,2,3,4] } };
 let currentDate = new Date();
@@ -1054,6 +1080,7 @@ function renderManage(){
 }
 
 $('#saveSettingsBtn').addEventListener('click', () => {
+  if(currentRole !== 'admin'){ showToast('هذه الصلاحية لمدير النظام فقط'); return; }
   const t = $('#startTimeInput').value || '08:00';
   const et = $('#endTimeInput').value || '14:00';
   const g = Number($('#graceInput').value) || 0;
@@ -1074,6 +1101,7 @@ $('#newSupName').addEventListener('keydown', e => { if(e.key === 'Enter') $('#ne
 $('#newSupPin').addEventListener('keydown', e => { if(e.key === 'Enter') addSupervisor(); });
 
 function addSupervisor(){
+  if(currentRole !== 'admin'){ showToast('هذه الصلاحية لمدير النظام فقط'); return; }
   const nameInput = $('#newSupName');
   const pinInput = $('#newSupPin');
   const name = nameInput.value.trim();
@@ -1090,6 +1118,7 @@ function addSupervisor(){
 }
 
 $('#manageList').addEventListener('click', e => {
+  if(currentRole !== 'admin'){ showToast('هذه الصلاحية لمدير النظام فقط'); return; }
   const delBtn = e.target.closest('.del-btn');
   const editBtn = e.target.closest('.edit-btn');
   if(delBtn){
@@ -1225,27 +1254,56 @@ document.querySelectorAll('nav.tabs button').forEach(btn => {
     $('#' + btn.dataset.tab).classList.add('active');
     if(btn.dataset.tab === 'monthly') renderMonthly();
     if(btn.dataset.tab === 'stats') renderStats();
+    if(btn.dataset.tab === 'accounts') renderAccounts();
   });
 });
 
-// ---------- ADMIN LOGIN ----------
-auth.onAuthStateChanged(user => {
-  isAdmin = !!user;
+// ---------- ADMIN LOGIN + ROLES ----------
+function applyRole(role){
+  currentRole = role;
+  isAdmin = !!role;
   document.querySelectorAll('.admin-only').forEach(b => b.style.display = isAdmin ? '' : 'none');
-  $('#loginTabBtn').textContent = isAdmin ? 'تسجيل الخروج' : 'دخول مشرف المتابعة';
-  if(isAdmin){
-    // بعد الدخول، وديه لأول تبويب إداري
-    document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
-    $('button[data-tab="daily"]').classList.add('active');
-    $('#daily').classList.add('active');
-  } else {
-    // بعد الخروج، رجّعه لصفحة تسجيل الحضور
-    document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
-    $('button[data-tab="checkin"]').classList.add('active');
-    $('#checkin').classList.add('active');
+  document.querySelectorAll('.sysadmin-only').forEach(b => b.style.display = role === 'admin' ? '' : 'none');
+  $('#loginTabBtn').textContent = isAdmin ? ('تسجيل الخروج · ' + ROLE_LABELS[role]) : 'دخول مشرف المتابعة';
+  const target = isAdmin ? 'daily' : (pendingLoginMsg ? 'login' : 'checkin');
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+  $('button[data-tab="' + target + '"]').classList.add('active');
+  $('#' + target).classList.add('active');
+  $('#loginResult').innerHTML = (!isAdmin && pendingLoginMsg) ? '<div class="checkin-result err">' + pendingLoginMsg + '</div>' : '';
+  pendingLoginMsg = '';
+}
+
+auth.onAuthStateChanged(async user => {
+  if(!user){ applyRole(null); return; }
+  const email = (user.email || '').toLowerCase();
+  let role = null;
+  try{
+    const snap = await db.collection('roles').doc(email).get();
+    if(snap.exists){
+      role = snap.data().role;
+    } else {
+      // أول حساب يدخل بعد تفعيل الصلاحيات يصير مدير النظام تلقائيًا (مرة واحدة فقط)
+      const init = await db.collection('roles').doc('_init').get();
+      if(!init.exists){
+        await db.collection('roles').doc(email).set({ role:'admin', bootstrap:true });
+        await db.collection('roles').doc('_init').set({ by:email });
+        role = 'admin';
+      }
+    }
+  }catch(e){
+    pendingLoginMsg = (e && e.code === 'permission-denied')
+      ? 'تعذّر قراءة الصلاحيات. حدّث قواعد Firestore حسب التعليمات ثم أعد المحاولة.'
+      : 'تعذّر التحقق من الصلاحيات، تأكد من الاتصال وأعد المحاولة.';
+    auth.signOut();
+    return;
   }
+  if(!ROLE_LABELS[role]){
+    pendingLoginMsg = 'هذا الحساب ليس له صلاحية دخول. تواصل مع مدير النظام.';
+    auth.signOut();
+    return;
+  }
+  applyRole(role);
 });
 
 $('#loginBtn').addEventListener('click', () => {
@@ -1257,8 +1315,101 @@ $('#loginBtn').addEventListener('click', () => {
     return;
   }
   auth.signInWithEmailAndPassword(email, pass)
-    .then(() => { resultBox.innerHTML = ''; $('#loginPass').value=''; })
+    .then(() => { $('#loginPass').value = ''; })
     .catch(() => { resultBox.innerHTML = '<div class="checkin-result err">بيانات الدخول غير صحيحة</div>'; });
+});
+
+// ---------- ACCOUNTS (مدير النظام فقط) ----------
+async function renderAccounts(){
+  if(currentRole !== 'admin') return;
+  const box = $('#accountsList');
+  box.innerHTML = '<div class="note">جارٍ التحميل...</div>';
+  try{
+    const snap = await db.collection('roles').get();
+    const rows = [];
+    snap.forEach(d => { if(d.id !== '_init') rows.push({ email:d.id, role:d.data().role }); });
+    rows.sort((a, b) => a.email.localeCompare(b.email));
+    const me = (auth.currentUser && auth.currentUser.email || '').toLowerCase();
+    box.innerHTML = rows.length ? rows.map(r => `
+      <div class="manage-row">
+        <div class="sup-name"><span class="avatar">${esc(r.email.slice(0,2).toUpperCase())}</span><span style="direction:ltr;">${esc(r.email)}</span>${r.email === me ? '<span class="pin-tag">أنت</span>' : ''}</div>
+        <div class="row-actions">
+          <select class="role-sel" data-email="${esc(r.email)}" ${r.email === me ? 'disabled' : ''}>
+            <option value="monitor" ${r.role === 'monitor' ? 'selected' : ''}>مشرف متابعة</option>
+            <option value="admin" ${r.role === 'admin' ? 'selected' : ''}>مدير النظام</option>
+          </select>
+          <button class="icon-btn edit-btn" data-reset="${esc(r.email)}" title="إرسال رابط تغيير كلمة المرور">✉</button>
+          <button class="icon-btn del-btn" data-remove="${esc(r.email)}" title="إلغاء الصلاحية" ${r.email === me ? 'disabled style="opacity:.4;cursor:not-allowed;"' : ''}>✕</button>
+        </div>
+      </div>`).join('') : '<div class="empty-state"><div class="big">لا توجد حسابات</div></div>';
+  }catch(e){
+    box.innerHTML = '<div class="checkin-result err">تعذّر تحميل الحسابات. تأكد من تحديث قواعد Firestore.</div>';
+  }
+}
+
+$('#addAccBtn').addEventListener('click', async () => {
+  if(currentRole !== 'admin'){ showToast('هذه الصلاحية لمدير النظام فقط'); return; }
+  const email = $('#newAccEmail').value.trim().toLowerCase();
+  const pass = $('#newAccPass').value;
+  const role = $('#newAccRole').value;
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ showToast('أدخل بريدًا إلكترونيًا صحيحًا'); return; }
+  let created = false;
+  try{
+    if(pass.length < 6){ showToast('كلمة المرور ٦ أحرف على الأقل'); return; }
+    const secondary = firebase.apps.find(a => a.name === 'secondary') || firebase.initializeApp(firebaseConfig, 'secondary');
+    await secondary.auth().createUserWithEmailAndPassword(email, pass);
+    await secondary.auth().signOut();
+    created = true;
+  }catch(e){
+    if(e.code === 'auth/email-already-in-use'){
+      if(!confirm('هذا البريد مسجّل مسبقًا. تبي تمنحه الصلاحية المحددة بكلمة مروره الحالية؟')) return;
+    } else {
+      showToast(e.code === 'auth/weak-password' ? 'كلمة المرور ضعيفة' : 'تعذّر إنشاء الحساب');
+      return;
+    }
+  }
+  try{
+    await db.collection('roles').doc(email).set({ role, createdBy:(auth.currentUser.email || '').toLowerCase() });
+    $('#newAccEmail').value = '';
+    $('#newAccPass').value = '';
+    showToast(created ? 'تم إنشاء الحساب' : 'تم منح الصلاحية');
+    renderAccounts();
+  }catch(e){
+    showToast('تعذّر حفظ الصلاحية');
+  }
+});
+
+$('#accountsList').addEventListener('change', async e => {
+  const sel = e.target.closest('.role-sel');
+  if(!sel || currentRole !== 'admin') return;
+  try{
+    await db.collection('roles').doc(sel.dataset.email).update({ role: sel.value });
+    showToast('تم تحديث الصلاحية');
+  }catch(err){
+    showToast('تعذّر التحديث');
+    renderAccounts();
+  }
+});
+
+$('#accountsList').addEventListener('click', async e => {
+  if(currentRole !== 'admin') return;
+  const resetBtn = e.target.closest('[data-reset]');
+  const rmBtn = e.target.closest('[data-remove]');
+  if(resetBtn){
+    try{
+      await auth.sendPasswordResetEmail(resetBtn.dataset.reset);
+      showToast('تم إرسال رابط تغيير كلمة المرور');
+    }catch(err){ showToast('تعذّر الإرسال'); }
+  }
+  if(rmBtn && !rmBtn.disabled){
+    const email = rmBtn.dataset.remove;
+    if(!confirm('إلغاء صلاحية ' + email + '؟ ما راح يقدر يدخل بعدها.')) return;
+    try{
+      await db.collection('roles').doc(email).delete();
+      showToast('تم إلغاء الصلاحية');
+      renderAccounts();
+    }catch(err){ showToast('تعذّر الإلغاء'); }
+  }
 });
 
 function renderAll(){
