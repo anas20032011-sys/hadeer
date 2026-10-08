@@ -63,6 +63,8 @@
     --excused-bg:#EBEEF2;
     --permit:#3E7CB1;
     --permit-bg:#E3EEF7;
+    --excab:#8B6FAE;
+    --excab-bg:#EEE8F5;
     --empty:#D8DEE4;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -135,6 +137,7 @@
   .status-btns button.sel-late{background:var(--late-bg); color:var(--late); border-color:var(--late);}
   .status-btns button.sel-excused{background:var(--excused-bg); color:var(--excused); border-color:var(--excused);}
   .status-btns button.sel-earlyLeave{background:var(--permit-bg); color:var(--permit); border-color:var(--permit);}
+  .status-btns button.sel-excusedAbsent{background:var(--excab-bg); color:var(--excab); border-color:var(--excab);}
 
   .empty-state{ text-align:center; padding:50px 20px; color:var(--ink-soft); }
   .empty-state .big{font-size:15px; font-weight:700; color:var(--ink); margin-bottom:6px;}
@@ -164,6 +167,7 @@
   .cell.late{background:var(--late);}
   .cell.excused{background:var(--excused);}
   .cell.earlyLeave{background:var(--permit);}
+  .cell.excusedAbsent{background:var(--excab);}
   .cell.weekend{opacity:0.35;}
 
   .add-row{display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap;}
@@ -226,6 +230,17 @@
     .sup-row{flex-direction:column; align-items:flex-start;}
     .status-btns button{padding:7px 10px; font-size:12px;}
   }
+@media print{
+  body *{ visibility:hidden; }
+  #printArea, #printArea *{ visibility:visible; }
+  #printArea{ position:absolute; top:0; right:0; left:0; margin:0; padding:0; }
+  #printHeader{ display:block !important; margin-bottom:14px; }
+  #printHeader .ptitle{ font-size:18px; font-weight:900; margin-bottom:4px; }
+  #printHeader .prange{ font-size:12px; color:#444; }
+  table.heatmap{ font-size:9px; }
+  .cell{ width:16px; height:16px; }
+  @page{ size:landscape; margin:10mm; }
+}
 </style>
 </head>
 <body>
@@ -243,6 +258,7 @@
       <button class="active" data-tab="checkin">تسجيل حضوري</button>
       <button data-tab="daily" class="admin-only" style="display:none;">التحضير اليومي</button>
       <button data-tab="monthly" class="admin-only" style="display:none;">تقرير الفترة</button>
+      <button data-tab="stats" class="admin-only" style="display:none;">الإحصائيات</button>
       <button data-tab="manage" class="admin-only" style="display:none;">إدارة المشرفين</button>
       <button data-tab="login" id="loginTabBtn">دخول مشرف المتابعة</button>
     </nav>
@@ -290,8 +306,10 @@
           <span><i class="dot" style="background:var(--late)"></i>متأخر</span>
           <span><i class="dot" style="background:var(--excused)"></i>إجازة</span>
           <span><i class="dot" style="background:var(--permit)"></i>مستأذن</span>
+          <span><i class="dot" style="background:var(--excab)"></i>غائب بعذر</span>
         </div>
       </div>
+      <div id="lateBanner"></div>
       <div id="dailyList"></div>
     </div>
   </section>
@@ -325,12 +343,41 @@
           <span><i class="dot" style="background:var(--late)"></i>متأخر</span>
           <span><i class="dot" style="background:var(--excused)"></i>إجازة</span>
           <span><i class="dot" style="background:var(--permit)"></i>مستأذن</span>
+          <span><i class="dot" style="background:var(--excab)"></i>غائب بعذر</span>
           <span><i class="dot" style="background:var(--empty)"></i>لم يسجل</span>
         </div>
         <button class="primary-btn" id="exportExcelBtn">تصدير Excel</button>
+        <button class="primary-btn" id="printPdfBtn" style="background:var(--ink);">طباعة / PDF</button>
       </div>
       <div class="note" style="margin-top:0; margin-bottom:12px;">أدخل بداية ونهاية الفترة بالتقويم الهجري. أيام الأسبوع تُحسب حسب أيام الدوام المحددة في "إدارة المشرفين".</div>
-      <div class="heatmap-wrap"><table class="heatmap" id="heatmapTable"></table></div>
+      <div id="printArea">
+        <div id="printHeader" style="display:none;"></div>
+        <div class="heatmap-wrap"><table class="heatmap" id="heatmapTable"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section id="stats">
+    <div class="card">
+      <div class="settings-row" style="margin-bottom:12px;">
+        <label>الفترة المحسوبة: نفس الفترة المحددة في "تقرير الفترة"</label>
+        <span class="pin-tag" id="statsRange">—</span>
+        <button class="primary-btn" id="refreshStatsBtn">تحديث</button>
+      </div>
+      <div class="settings-row" style="margin-bottom:6px;">
+        <label>تنبيه عند التأخر</label>
+        <input type="text" id="lateAlertInput" style="width:60px;" inputmode="numeric">
+        <label>مرات أو أكثر</label>
+        <button class="primary-btn" id="saveLateAlertBtn">حفظ</button>
+      </div>
+    </div>
+    <div class="summary-strip" id="statsStrip"></div>
+    <div class="card" id="statsAlerts"></div>
+    <div class="card">
+      <div class="block-title" style="font-size:13px; font-weight:700; color:var(--ink-soft); margin-bottom:10px;">ترتيب المشرفين (الأكثر تأخرًا أولًا)</div>
+      <div class="heatmap-wrap"><table class="heatmap" id="statsTable" style="min-width:520px;"></table></div>
+      <div class="note">نسبة الحضور = (حاضر + متأخر + مستأذن) ÷ أيام الدوام المنقضية، بعد استبعاد أيام الإجازة والغياب بعذر.</div>
     </div>
   </section>
 
@@ -381,13 +428,13 @@ const auth = firebase.auth();
 const docRef = db.collection('hadeer').doc('appData');
 let isAdmin = false;
 
-let state = { supervisors: [], records: {}, settings: { startTime: '08:00', endTime: '14:00', grace: 15, workDays: [0,1,2,3,4] } };
+let state = { supervisors: [], records: {}, settings: { startTime: '08:00', endTime: '14:00', grace: 15, lateAlert: 3, workDays: [0,1,2,3,4] } };
 let currentDate = new Date();
 let currentMonth = new Date();
 
 const $ = sel => document.querySelector(sel);
 const fmtDate = d => d.toISOString().slice(0,10);
-const statusLabel = { present:'حاضر', absent:'غائب', late:'متأخر', excused:'إجازة', earlyLeave:'مستأذن' };
+const statusLabel = { present:'حاضر', absent:'غائب', late:'متأخر', excused:'إجازة', earlyLeave:'مستأذن', excusedAbsent:'غائب بعذر' };
 
 function showToast(msg){
   const t = $('#toast');
@@ -402,7 +449,7 @@ async function loadState(){
     if(snap.exists){
       const loaded = snap.data();
       state = Object.assign({ supervisors:[], records:{}, settings:{} }, loaded);
-      state.settings = Object.assign({ startTime:'08:00', endTime:'14:00', grace:15, workDays:[0,1,2,3,4] }, state.settings || {});
+      state.settings = Object.assign({ startTime:'08:00', endTime:'14:00', grace:15, lateAlert:3, workDays:[0,1,2,3,4] }, state.settings || {});
     }
   }catch(e){
     showToast('تعذر الاتصال بقاعدة البيانات');
@@ -423,7 +470,7 @@ docRef.onSnapshot(snap => {
   if(!snap.exists) return;
   const loaded = snap.data();
   state = Object.assign({ supervisors:[], records:{}, settings:{} }, loaded);
-  state.settings = Object.assign({ startTime:'08:00', endTime:'14:00', grace:15, workDays:[0,1,2,3,4] }, state.settings || {});
+  state.settings = Object.assign({ startTime:'08:00', endTime:'14:00', grace:15, lateAlert:3, workDays:[0,1,2,3,4] }, state.settings || {});
   renderAll();
 }, err => console.error(err));
 
@@ -611,7 +658,7 @@ function renderDaily(){
         ${outTag ? `<span class="pin-tag" style="font-weight:500;">خروج ${outTag}</span>` : ''}
       </div>
       <div class="status-btns">
-        ${['present','absent','late','excused','earlyLeave'].map(s => `
+        ${['present','absent','late','excused','earlyLeave','excusedAbsent'].map(s => `
           <button data-status="${s}" data-sup="${sup.id}" class="${current===s ? 'sel-'+s : ''}">${statusLabel[s]}</button>
         `).join('')}
         ${current ? `<button data-del="${sup.id}" class="icon-btn del-btn" style="width:auto; padding:7px 12px;" title="حذف التحضير">حذف</button>` : ''}
@@ -833,7 +880,7 @@ function renderMonthly(){
   thead += '</tr>';
 
   let rows = '';
-  const totals = { present:0, absent:0, late:0, excused:0, earlyLeave:0 };
+  const totals = { present:0, absent:0, late:0, excused:0, earlyLeave:0, excusedAbsent:0 };
 
   state.supervisors.forEach(sup => {
     rows += `<tr><td class="name-col">${sup.name}</td>`;
@@ -856,6 +903,7 @@ function renderMonthly(){
     <div class="stat late"><div class="n">${totals.late||0}</div><div class="l">أيام تأخير</div></div>
     <div class="stat"><div class="n">${totals.excused||0}</div><div class="l">أيام إجازة</div></div>
     <div class="stat"><div class="n">${totals.earlyLeave||0}</div><div class="l">أيام استئذان</div></div>
+    <div class="stat"><div class="n">${totals.excusedAbsent||0}</div><div class="l">غياب بعذر</div></div>
   `;
 }
 
@@ -865,7 +913,7 @@ $('#heatmapTable').addEventListener('click', e => {
   const supId = cell.dataset.sup;
   const dateStr = cell.dataset.date;
   const key = supId + ':' + dateStr;
-  const order = [undefined, 'present', 'absent', 'late', 'excused', 'earlyLeave'];
+  const order = [undefined, 'present', 'absent', 'late', 'excused', 'earlyLeave', 'excusedAbsent'];
   const currentIdx = order.indexOf(state.records[key]);
   const next = order[(currentIdx + 1) % order.length];
   if(next === undefined){ delete state.records[key]; delete state.records[key + ':time']; delete state.records[key + ':outtime']; }
@@ -878,6 +926,21 @@ $('#heatmapTable').addEventListener('click', e => {
   $('#' + id).addEventListener('change', updateHijriLabels);
 });
 $('#showPeriodBtn').addEventListener('click', renderMonthly);
+
+$('#printPdfBtn').addEventListener('click', () => {
+  const startG = getGregorianFromHijriInputs('start');
+  const endG = getGregorianFromHijriInputs('end');
+  if(!startG || !endG || fmtDate(startG) > fmtDate(endG)){
+    showToast('تحقق من التاريخ الهجري المدخل');
+    return;
+  }
+  renderMonthly();
+  const name = $('#periodName').value.trim() || 'تقرير تحضير المشرفين';
+  $('#printHeader').innerHTML =
+    `<div class="ptitle">${name}</div>` +
+    `<div class="prange">من ${hijriFull(startG)} إلى ${hijriFull(endG)}</div>`;
+  window.print();
+});
 
 // ---------- EXPORT TO EXCEL ----------
 $('#exportExcelBtn').addEventListener('click', () => {
@@ -898,12 +961,12 @@ $('#exportExcelBtn').addEventListener('click', () => {
   // ورقة 1: جدول يومي تفصيلي بالتاريخ الهجري
   const header = ['المشرف'];
   days.forEach(dateStr => header.push(hijriFull(new Date(dateStr + 'T00:00:00'))));
-  header.push('أيام حضور','أيام غياب','أيام تأخير','أيام إجازة','أيام استئذان','إجمالي ساعات العمل');
+  header.push('أيام حضور','أيام غياب','أيام تأخير','أيام إجازة','أيام استئذان','غياب بعذر','إجمالي ساعات العمل');
 
   const rows = [header];
   state.supervisors.forEach(sup => {
     const row = [sup.name];
-    const totals = { present:0, absent:0, late:0, excused:0, earlyLeave:0 };
+    const totals = { present:0, absent:0, late:0, excused:0, earlyLeave:0, excusedAbsent:0 };
     let totalMinutes = 0;
     days.forEach(dateStr => {
       const key = sup.id + ':' + dateStr;
@@ -927,12 +990,12 @@ $('#exportExcelBtn').addEventListener('click', () => {
     });
     const totalH = Math.floor(totalMinutes/60);
     const totalM = totalMinutes%60;
-    row.push(totals.present, totals.absent, totals.late, totals.excused, totals.earlyLeave, `${totalH}س ${totalM}د`);
+    row.push(totals.present, totals.absent, totals.late, totals.excused, totals.earlyLeave, totals.excusedAbsent, `${totalH}س ${totalM}د`);
     rows.push(row);
   });
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{ wch: 20 }, ...Array(days.length).fill({ wch: 28 }), { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 16 }];
+  ws['!cols'] = [{ wch: 20 }, ...Array(days.length).fill({ wch: 28 }), { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 16 }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'تقرير الحضور');
@@ -1053,6 +1116,102 @@ $('#manageList').addEventListener('click', e => {
   }
 });
 
+// ---------- STATS & ALERTS ----------
+function computeStats(startStr, endStr){
+  const days = dateRangeList(startStr, endStr);
+  const todayStr = fmtDate(new Date());
+  const workDays = (state.settings.workDays && state.settings.workDays.length) ? state.settings.workDays : [0,1,2,3,4];
+  const countedDays = days.filter(d => d <= todayStr && workDays.includes(new Date(d + 'T00:00:00').getDay()));
+  return state.supervisors.map(sup => {
+    const c = { present:0, absent:0, late:0, excused:0, earlyLeave:0, excusedAbsent:0 };
+    countedDays.forEach(d => {
+      const st = state.records[sup.id + ':' + d];
+      if(st && c[st] !== undefined) c[st]++;
+    });
+    const attended = c.present + c.late + c.earlyLeave;
+    const base = countedDays.length - c.excused - c.excusedAbsent;
+    const rate = base > 0 ? Math.round(attended / base * 100) : null;
+    return { sup, c, attended, base, rate };
+  });
+}
+
+function renderStats(){
+  const startG = getGregorianFromHijriInputs('start');
+  const endG = getGregorianFromHijriInputs('end');
+  const strip = $('#statsStrip');
+  const table = $('#statsTable');
+  const alertsBox = $('#statsAlerts');
+  $('#lateAlertInput').value = state.settings.lateAlert ?? 3;
+  if(!startG || !endG || fmtDate(startG) > fmtDate(endG)){
+    $('#statsRange').textContent = '—';
+    strip.innerHTML = '';
+    table.innerHTML = '';
+    alertsBox.innerHTML = '<div class="empty-state"><div class="big">حدّد الفترة أولًا</div>من تبويب "تقرير الفترة"</div>';
+    return;
+  }
+  $('#statsRange').textContent = hijriFull(startG) + ' ← ' + hijriFull(endG);
+  if(state.supervisors.length === 0){
+    strip.innerHTML = '';
+    table.innerHTML = '';
+    alertsBox.innerHTML = '<div class="empty-state"><div class="big">ما فيه مشرفين بعد</div></div>';
+    return;
+  }
+  const rows = computeStats(fmtDate(startG), fmtDate(endG));
+  const totalAttended = rows.reduce((a, r) => a + r.attended, 0);
+  const totalBase = rows.reduce((a, r) => a + r.base, 0);
+  const overall = totalBase > 0 ? Math.round(totalAttended / totalBase * 100) : 0;
+  const totalLate = rows.reduce((a, r) => a + r.c.late, 0);
+  const totalAbsent = rows.reduce((a, r) => a + r.c.absent, 0);
+  strip.innerHTML = `
+    <div class="stat present"><div class="n">${overall}%</div><div class="l">نسبة الحضور العامة</div></div>
+    <div class="stat late"><div class="n">${totalLate}</div><div class="l">إجمالي التأخير</div></div>
+    <div class="stat absent"><div class="n">${totalAbsent}</div><div class="l">إجمالي الغياب</div></div>
+  `;
+
+  const threshold = Number(state.settings.lateAlert) || 3;
+  const flagged = rows.filter(r => r.c.late >= threshold).sort((a, b) => b.c.late - a.c.late);
+  alertsBox.innerHTML = flagged.length
+    ? '<div class="block-title" style="font-size:13px; font-weight:700; color:var(--late); margin-bottom:8px;">⚠ متأخرون بشكل متكرر</div>' +
+      flagged.map(r => `<div class="checkin-result late" style="margin:6px 0;">${r.sup.name} — تأخر ${r.c.late} مرات</div>`).join('')
+    : '<div class="note" style="margin:0;">لا يوجد مشرف وصل حد التنبيه (' + threshold + ' مرات تأخير) في هذه الفترة.</div>';
+
+  const sorted = rows.slice().sort((a, b) => b.c.late - a.c.late || a.sup.name.localeCompare(b.sup.name, 'ar'));
+  table.innerHTML =
+    '<tr><th class="name-col">المشرف</th><th>نسبة الحضور</th><th>تأخير</th><th>غياب</th><th>غياب بعذر</th><th>إجازة</th><th>استئذان</th></tr>' +
+    sorted.map(r => `<tr>
+      <td class="name-col">${r.sup.name}</td>
+      <td style="font-weight:700;">${r.rate === null ? '—' : r.rate + '%'}</td>
+      <td>${r.c.late}</td><td>${r.c.absent}</td><td>${r.c.excusedAbsent}</td><td>${r.c.excused}</td><td>${r.c.earlyLeave}</td>
+    </tr>`).join('');
+}
+
+// تنبيه المتأخرين المتكررين في الشهر الهجري الحالي (يظهر أعلى التحضير اليومي)
+function renderLateBanner(){
+  const box = $('#lateBanner');
+  if(!box) return;
+  const h = toHijri(new Date());
+  if(!h || state.supervisors.length === 0){ box.innerHTML = ''; return; }
+  const monthStart = hijriToGregorian(Number(h.year), Number(h.month), 1);
+  if(!monthStart){ box.innerHTML = ''; return; }
+  const threshold = Number(state.settings.lateAlert) || 3;
+  const flagged = computeStats(fmtDate(monthStart), fmtDate(new Date())).filter(r => r.c.late >= threshold);
+  box.innerHTML = flagged.length
+    ? `<div class="checkin-result late" style="margin:0 0 14px; text-align:right;">⚠ تنبيه تأخر متكرر هذا الشهر الهجري: ` +
+      flagged.map(r => `${r.sup.name} (${r.c.late})`).join('، ') + '</div>'
+    : '';
+}
+
+$('#refreshStatsBtn').addEventListener('click', renderStats);
+$('#saveLateAlertBtn').addEventListener('click', () => {
+  const v = Number($('#lateAlertInput').value);
+  if(!v || v < 1){ showToast('أدخل رقم صحيح'); return; }
+  state.settings.lateAlert = v;
+  saveState();
+  renderStats();
+  renderLateBanner();
+  showToast('تم حفظ حد التنبيه');
+});
+
 // ---------- TABS ----------
 document.querySelectorAll('nav.tabs button').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1065,6 +1224,7 @@ document.querySelectorAll('nav.tabs button').forEach(btn => {
     btn.classList.add('active');
     $('#' + btn.dataset.tab).classList.add('active');
     if(btn.dataset.tab === 'monthly') renderMonthly();
+    if(btn.dataset.tab === 'stats') renderStats();
   });
 });
 
@@ -1106,6 +1266,8 @@ function renderAll(){
   renderDaily();
   renderMonthly();
   renderManage();
+  renderStats();
+  renderLateBanner();
 }
 
 // init
