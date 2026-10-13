@@ -56,13 +56,23 @@
     }
   },
   "typography": {
-    "family": "Thmanyah Sans",
-    "weights": {
-      "light": 300,
-      "regular": 400,
-      "medium": 500,
-      "bold": 700,
-      "black": 900
+    "ui": {
+      "family": "Thmanyah Sans",
+      "weights": {
+        "regular": 400,
+        "medium": 500,
+        "bold": 700,
+        "black": 900
+      },
+      "use": "الواجهة والنصوص والأرقام"
+    },
+    "display": {
+      "family": "Thmanyah Serif Display",
+      "weights": {
+        "bold": 700,
+        "black": 900
+      },
+      "use": "العناوين الكبيرة فقط"
     }
   }
 }
