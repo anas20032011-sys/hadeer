@@ -1,0 +1,68 @@
+{
+  "name": "حاضر",
+  "version": "1.0",
+  "brand": {
+    "green-950": "#0A2A22",
+    "green-900": "#0F3A30",
+    "green-800": "#154739",
+    "green-700": "#1E5547",
+    "green-600": "#25705B",
+    "green-500": "#2F8068",
+    "green-300": "#8CC4B2",
+    "green-100": "#E3F1EC",
+    "green-50": "#F2F8F6",
+    "gold": "#E7BC4F",
+    "gold-600": "#C99A2E",
+    "gold-100": "#FBF3DC"
+  },
+  "neutral": {
+    "ink": "#14232B",
+    "slate": "#55656F",
+    "slate-2": "#617080",
+    "line": "#E3E9ED",
+    "canvas": "#F3F6F6",
+    "surface": "#FFFFFF"
+  },
+  "status": {
+    "present": {
+      "fill": "#1F9D6B",
+      "bg": "#E3F5EC",
+      "ink": "#127A52"
+    },
+    "absent": {
+      "fill": "#D64545",
+      "bg": "#FCE9E9",
+      "ink": "#B83232"
+    },
+    "late": {
+      "fill": "#CF8A1F",
+      "bg": "#FBF0DC",
+      "ink": "#8F5C0B"
+    },
+    "excused": {
+      "fill": "#66788E",
+      "bg": "#EAEEF3",
+      "ink": "#4F6075"
+    },
+    "permit": {
+      "fill": "#3A78B5",
+      "bg": "#E2EDF8",
+      "ink": "#2B639B"
+    },
+    "excusedAbsent": {
+      "fill": "#8466AB",
+      "bg": "#EEE8F6",
+      "ink": "#6A4D92"
+    }
+  },
+  "typography": {
+    "family": "Thmanyah Sans",
+    "weights": {
+      "light": 300,
+      "regular": 400,
+      "medium": 500,
+      "bold": 700,
+      "black": 900
+    }
+  }
+}
