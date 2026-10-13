@@ -58,23 +58,13 @@
     }
   },
   "typography": {
-    "ui": {
-      "family": "Thmanyah Sans",
-      "weights": {
-        "regular": 400,
-        "medium": 500,
-        "bold": 700,
-        "black": 900
-      },
-      "use": "الواجهة والنصوص والأرقام"
+    "family": "Thmanyah Serif Display",
+    "weights": {
+      "medium": 500,
+      "bold": 700,
+      "black": 900
     },
-    "display": {
-      "family": "Thmanyah Serif Display",
-      "weights": {
-        "bold": 700,
-        "black": 900
-      },
-      "use": "العناوين الكبيرة فقط"
-    }
+    "use": "كل نصوص المنصة",
+    "note": "كلمة الشعار مرسومة بثمانية سانس الأسود وتبقى كما هي"
   }
 }
