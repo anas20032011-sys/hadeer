@@ -382,6 +382,19 @@ table.heatmap th{ font-size:10.5px; color:var(--slate); font-weight:800; padding
 .lb-inner h2{ font-size:32px; }
 .lf-card h3{ font-size:28px; }
 
+/* ---------- نافذة تعديل الوقت ---------- */
+.modal{ position:fixed; inset:0; z-index:400; display:grid; place-items:center; padding:16px; background:rgba(var(--deep-rgb),.55); backdrop-filter:blur(3px); }
+.modal[hidden]{ display:none; }
+.modal-card{ width:100%; max-width:440px; max-height:92vh; overflow:auto; background:#fff; border-radius:var(--r-lg); padding:24px; box-shadow:var(--sh-2); animation:fade .2s ease; }
+.modal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+.modal-head h3{ font-size:21px; font-weight:900; }
+.tm-who{ color:var(--slate); font-weight:700; margin-bottom:18px; }
+.tm-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+.tm-grid label{ display:flex; flex-direction:column; gap:6px; font-weight:800; font-size:13.5px; }
+.tm-grid input{ width:100%; }
+.modal-actions{ display:flex; gap:10px; margin-top:18px; }
+.modal-actions .primary-btn{ flex:1; }
+
 /* ---------- الجوال والأجهزة اللوحية ---------- */
 @media(max-width:1000px){
   .grid-2{ grid-template-columns:1fr; }
@@ -431,7 +444,7 @@ table.heatmap th{ font-size:10.5px; color:var(--slate); font-weight:800; padding
 
 /* ---------- الطباعة ---------- */
 @media print{
-  .sidebar, .topbar, .bottom-bar, .scrim, .toast{ display:none !important; }
+  .sidebar, .topbar, .bottom-bar, .scrim, .toast, .modal{ display:none !important; }
   .content{ padding:0 !important; margin:0 !important; max-width:none !important; }
   body *{ visibility:hidden; }
   #printArea, #printArea *{ visibility:visible; }
@@ -838,6 +851,20 @@ table.heatmap th{ font-size:10.5px; color:var(--slate); font-weight:800; padding
   <button class="nav-item" data-tab="me"><svg class="ic" aria-hidden="true"><use href="#i-user-round"/></svg><span class="lbl">سجلي وطلباتي</span></button>
   <button class="nav-item" data-tab="login"><svg class="ic" aria-hidden="true"><use href="#i-log-in"/></svg><span class="lbl">دخول الإدارة</span></button>
 </nav>
+<div class="modal" id="timeModal" role="dialog" aria-modal="true" aria-labelledby="tmTitle" hidden>
+  <div class="modal-card">
+    <div class="modal-head"><h3 id="tmTitle">تعديل وقت الحضور</h3><button class="icon-btn del-btn" id="tmClose" type="button" aria-label="إغلاق"><svg class="ic sm" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+    <div class="tm-who" id="tmWho"></div>
+    <div class="tm-grid">
+      <label>وقت الدخول<input type="time" id="tmIn"></label>
+      <label>وقت الخروج<input type="time" id="tmOut"></label>
+    </div>
+    <label class="toggle-row" id="tmAutoRow"><input type="checkbox" id="tmAuto" checked> احتساب الحالة (حاضر / متأخر) تلقائيًا من وقت الدخول</label>
+    <div class="note" id="tmHint" style="margin-top:0;"></div>
+    <div id="tmError"></div>
+    <div class="modal-actions"><button class="primary-btn" id="tmSave" type="button">حفظ التعديل</button><button class="btn-ghost" id="tmCancel" type="button">إلغاء</button></div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -3415,6 +3442,9 @@ function renderDaily(){
         ${timeTag ? `<span class="pin-tag" style="font-weight:500;">دخول ${timeTag}</span>` : ''}
         ${outTag ? `<span class="pin-tag" style="font-weight:500;">خروج ${outTag}</span>` : ''}
         ${state.records[key + ':perm'] ? `<span class="pin-tag" style="font-weight:500; background:var(--permit-bg); color:var(--permit-ink);">استئذان معتمد ${timeAr(state.records[key + ':perm'])}</span>` : ''}
+      
+        ${state.records[key + ':edit'] ? `<span class="pin-tag" title="${esc(editInfo(state.records[key + ':edit']))}" style="background:var(--gold-100); color:var(--late-ink);">معدَّل</span>` : ''}
+        <button class="icon-btn edit-btn" data-edittime="${sup.id}" title="تعديل وقت الدخول والخروج" aria-label="تعديل وقت ${esc(sup.name)}">${ic('clock', 'sm')}</button>
       </div>
       <div class="status-btns">
         ${['present','absent','late','excused','earlyLeave','excusedAbsent'].map(s => `
@@ -3455,7 +3485,7 @@ $('#dailyList').addEventListener('click', e => {
     if(!confirm(`متأكد تبي تحذف تحضير ${supName} لهذا اليوم؟ هذا الإجراء ما يُرجع.`)) return;
     delete state.records[key];
     delete state.records[key + ':time'];
-    delete state.records[key + ':outtime'];
+    delete state.records[key + ':outtime']; delete state.records[key + ':edit'];
     saveState();
     renderDaily();
     showToast('تم حذف التحضير');
@@ -3481,7 +3511,7 @@ $('#dailyList').addEventListener('click', e => {
   if(state.records[key] === status){
     delete state.records[key];
     delete state.records[key + ':time'];
-    delete state.records[key + ':outtime'];
+    delete state.records[key + ':outtime']; delete state.records[key + ':edit'];
   } else {
     state.records[key] = status;
     if(!state.records[key + ':time']){
@@ -3674,7 +3704,7 @@ $('#heatmapTable').addEventListener('click', e => {
   const order = [undefined, 'present', 'absent', 'late', 'excused', 'earlyLeave', 'excusedAbsent'];
   const currentIdx = order.indexOf(state.records[key]);
   const next = order[(currentIdx + 1) % order.length];
-  if(next === undefined){ delete state.records[key]; delete state.records[key + ':time']; delete state.records[key + ':outtime']; }
+  if(next === undefined){ delete state.records[key]; delete state.records[key + ':time']; delete state.records[key + ':outtime']; delete state.records[key + ':edit']; }
   else{ state.records[key] = next; }
   saveState();
   renderMonthly();
@@ -3745,6 +3775,7 @@ $('#exportExcelBtn').addEventListener('click', () => {
           cell += ` (${Math.floor(dayMinutes/60)}س ${dayMinutes%60}د)`;
         }
       }
+      if(state.records[key + ':edit']) cell += ' (معدَّل)';
       row.push(cell);
     });
     const totalH = Math.floor(totalMinutes/60);
@@ -4454,6 +4485,80 @@ function renderDashboard(){
   }
   $('#dashAlerts').innerHTML = alerts.join('');
 }
+
+
+// ---------- تعديل وقت الحضور (مدير النظام ومشرف المتابعة) ----------
+let tmCtx = null;
+const min2hhmm = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+function editInfo(v){
+  const parts = String(v).split('|');
+  const when = parts[1] ? new Date(parts[1]).toLocaleString('ar-SA-u-ca-islamic-umalqura', { day:'numeric', month:'long', hour:'2-digit', minute:'2-digit' }) : '';
+  return 'عدّله ' + (parts[0] || '') + (when ? ' — ' + when : '');
+}
+function closeTimeModal(){
+  $('#timeModal').hidden = true;
+  document.body.style.overflow = '';
+  tmCtx = null;
+}
+function openTimeModal(supId){
+  const sup = state.supervisors.find(s => s.id === supId);
+  if(!sup || !isAdmin) return;
+  const dateStr = $('#dailyDate').value, key = supId + ':' + dateStr;
+  tmCtx = { supId, dateStr };
+  $('#tmWho').textContent = sup.name + ' — ' + hLabel(dateStr, true);
+  const tin = state.records[key + ':time'], tout = state.records[key + ':outtime'];
+  $('#tmIn').value = tin ? min2hhmm(outTag2min(tin)) : '';
+  $('#tmOut').value = tout ? min2hhmm(outTag2min(tout)) : '';
+  const st = state.records[key];
+  $('#tmAutoRow').style.display = (!st || st === 'present' || st === 'late') ? '' : 'none';
+  $('#tmAuto').checked = true;
+  $('#tmHint').textContent = 'بداية الدوام ' + timeAr(state.settings.startTime || '08:00') + ' + سماح ' + (Number(state.settings.grace) || 0) +
+    ' دقيقة — وقت الخروج المعتمد ' + timeAr(state.settings.endTime || '14:00') + '. اترك الحقل فارغًا لمسح الوقت.';
+  $('#tmError').innerHTML = '';
+  $('#timeModal').hidden = false;
+  document.body.style.overflow = 'hidden';
+  $('#tmIn').focus();
+}
+$('#dailyList').addEventListener('click', e => {
+  const b = e.target.closest('[data-edittime]');
+  if(b) openTimeModal(b.dataset.edittime);
+});
+$('#tmClose').addEventListener('click', closeTimeModal);
+$('#tmCancel').addEventListener('click', closeTimeModal);
+$('#timeModal').addEventListener('click', e => { if(e.target.id === 'timeModal') closeTimeModal(); });
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && !$('#timeModal').hidden) closeTimeModal(); });
+
+$('#tmSave').addEventListener('click', () => {
+  if(!tmCtx || !isAdmin) return;
+  const { supId, dateStr } = tmCtx, key = supId + ':' + dateStr;
+  const inV = $('#tmIn').value, outV = $('#tmOut').value;
+  const err = m => { $('#tmError').innerHTML = '<div class="checkin-result err">' + m + '</div>'; };
+  if(outV && !inV){ err('أدخل وقت الدخول أولًا'); return; }
+  if(inV && outV && timeToMin(outV) <= timeToMin(inV)){ err('وقت الخروج يجب أن يكون بعد وقت الدخول'); return; }
+
+  const oldIn = state.records[key + ':time'], oldOut = state.records[key + ':outtime'], oldSt = state.records[key];
+  const newIn = inV ? timeAr(inV) : undefined, newOut = outV ? timeAr(outV) : undefined;
+  let newSt = oldSt;
+  // الحالة لا تُعاد إلا إذا تغيّر وقت الدخول (أو لم تكن هناك حالة): حتى لا تُقلب حالة صحّحها أحدهم يدويًا
+  if($('#tmAuto').checked && (!oldSt || oldSt === 'present' || oldSt === 'late')){
+    if(inV && (newIn !== oldIn || !oldSt)){
+      const p = (state.settings.startTime || '08:00').split(':').map(Number);
+      const grace = Number(state.settings.grace) || 0;
+      newSt = timeToMin(inV) > p[0] * 60 + p[1] + grace ? 'late' : 'present';
+    }
+    if(outV && newOut !== oldOut && state.records[key + ':perm'] && timeToMin(outV) < timeToMin(state.settings.endTime || '14:00')) newSt = 'earlyLeave';
+  }
+  if(newIn === oldIn && newOut === oldOut && newSt === oldSt){ closeTimeModal(); return; }
+
+  if(newIn) state.records[key + ':time'] = newIn; else delete state.records[key + ':time'];
+  if(newOut) state.records[key + ':outtime'] = newOut; else delete state.records[key + ':outtime']; delete state.records[key + ':edit'];
+  if(newSt) state.records[key] = newSt;
+  state.records[key + ':edit'] = ((auth.currentUser && auth.currentUser.email) || '').toLowerCase() + '|' + new Date().toISOString();
+  saveState();
+  closeTimeModal();
+  renderDaily(); renderMonthly(); renderDashboard();
+  showToast('تم تعديل الوقت');
+});
 
 // ---------- ADMIN LOGIN + ROLES ----------
 function applyRole(role){
