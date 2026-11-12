@@ -495,6 +495,15 @@ table.heatmap th{ font-size:10.5px; color:var(--slate); font-weight:800; padding
   .notif-pop{ position:fixed; top:64px; left:12px; right:12px; width:auto; max-width:none; }
 }
 
+.arrive-banner{ position:fixed; top:12px; inset-inline:12px; margin-inline:auto; max-width:560px; z-index:300; display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--g900); color:#fff; border-radius:var(--r-md); box-shadow:var(--sh-2); animation:nFresh .5s ease 1; }
+.arrive-banner[hidden]{ display:none; }
+.arrive-banner .ab-ic{ flex:none; width:40px; height:40px; border-radius:12px; display:grid; place-items:center; background:rgba(255,255,255,.14); }
+.arrive-banner .ab-t{ flex:1; min-width:0; font-size:14px; line-height:1.6; }
+.arrive-banner .ab-t small{ display:block; opacity:.8; font-size:12.5px; }
+.arrive-banner .primary-btn{ height:38px; padding:0 14px; font-size:13px; background:var(--gold); color:#2B2100; flex:none; }
+.arrive-banner .icon-btn{ background:transparent; color:#fff; flex:none; }
+@media(max-width:700px){ .arrive-banner{ flex-wrap:wrap; } .arrive-banner .ab-t{ flex-basis:60%; } }
+
 /* ---------- الطباعة ---------- */
 @media print{
   .sidebar, .topbar, .bottom-bar, .scrim, .toast, .modal{ display:none !important; }
@@ -743,6 +752,11 @@ table.heatmap th{ font-size:10.5px; color:var(--slate); font-weight:800; padding
           <div class="sup-name"><span class="avatar" id="meAvatar"></span><span id="meName"></span></div>
           <button class="primary-btn" id="meExitBtn" style="background:var(--ink-soft);">خروج</button>
         </div>
+      </div>
+      <div class="card" id="arriveCard">
+        <div style="font-weight:900; margin-bottom:6px;">تذكير عند الوصول</div>
+        <div class="note" style="margin:0 0 12px;">يذكّرك بتسجيل حضورك عندما تدخل نطاق موقع الدوام. يعمل ما دام الموقع مفتوحًا في متصفح جوالك، ولا يعمل وهو مغلق. موقعك لا يُرسل ولا يُحفظ، بل يُقارن على جهازك فقط.</div>
+        <div class="settings-row"><span class="pin-tag" id="arriveStatus">—</span><button class="primary-btn" id="arriveBtn" type="button">تفعيل التذكير</button></div>
       </div>
       <div class="card">
         <div class="toolbar">
@@ -3335,6 +3349,7 @@ function tick(){
   $('#pageSub').textContent = now.toLocaleDateString('ar-SA-u-ca-islamic-umalqura', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
   runEndOfDayAutoProcessing();
   nSync();
+  arrSync();
 }
 setInterval(tick, 1000);
 
@@ -4836,6 +4851,7 @@ const NTYPES = {
   selfconfirm:{ tone:'success',icon:'badge-check',  label:'تأكيد تسجيل حضوري وانصرافي', grp:'sup', generic:'تأكيد تسجيل' },
   remind:   { tone:'info',    icon:'alarm-clock',   label:'تذكير ببداية الدوام',  grp:'sup',   generic:'تذكير بالدوام' },
   selflate: { tone:'warn',    icon:'hourglass',     label:'تنبيه التأخر والغياب لي', grp:'sup', generic:'تنبيه' },
+  arrive:   { tone:'info',    icon:'map-pin',      label:'تذكير عند دخول نطاق موقع الدوام', grp:'sup', generic:'تذكير بتسجيل الحضور' },
   decision: { tone:'info',    icon:'send',          label:'قرار طلب الإجازة أو الاستئذان', grp:'sup', generic:'قرار على طلبك' }
 };
 const N_DEFAULTS = { remindMin:15, noshowMin:30, sound:true, browser:true };
@@ -5170,6 +5186,95 @@ document.addEventListener('click', e => {
   state.settings.grace = num('#nsGrace', Number(state.settings.grace) || 0);
   saveState();
   showToast('تم حفظ إعدادات الإشعارات');
+});
+
+// ---------- تذكير الوصول: عند دخول نطاق موقع الدوام ----------
+// يعمل داخل صفحة الموقع المفتوحة فقط (المتصفح لا يسمح بتتبع الموقع في الخلفية دون تطبيق).
+// الموقع يُقارَن على جهاز المشرف ولا يُرسل ولا يُحفظ.
+const ARR_KEY = 'hadeerArrive';
+const arrPref = () => { try{ return JSON.parse(localStorage.getItem(ARR_KEY) || 'null'); }catch(e){ return null; } };
+const arrSet = v => { try{ if(v) localStorage.setItem(ARR_KEY, JSON.stringify(v)); else localStorage.removeItem(ARR_KEY); }catch(e){} };
+let arrWatch = null, arrStatus = 'off', arrSig = '';
+
+function arrSync(){
+  const p = arrPref(), g = (state.settings && state.settings.geo) || {};
+  const geoOk = g.enabled && g.lat != null && g.lng != null;
+  const need = !!(p && p.on && geoOk);
+  const sig = [need, p && p.supId, geoOk].join('|');
+  if(sig !== arrSig){
+    arrSig = sig;
+    if(arrWatch !== null && navigator.geolocation){ navigator.geolocation.clearWatch(arrWatch); arrWatch = null; }
+    if(need && navigator.geolocation){
+      arrStatus = 'watching';
+      arrWatch = navigator.geolocation.watchPosition(arrOnPos, e => { arrStatus = (e && e.code === 1) ? 'denied' : 'error'; renderArrive(); }, { enableHighAccuracy:true, maximumAge:15000, timeout:30000 });
+    } else arrStatus = 'off';
+  }
+  renderArrive();
+}
+
+function arrOnPos(pos){
+  arrStatus = 'watching';
+  const p = arrPref(), g = state.settings.geo || {};
+  if(!p || !p.on || g.lat == null || !state.supervisors) return renderArrive();
+  const sup = state.supervisors.find(s => s.id === p.supId);
+  if(!sup) return;
+  const now = new Date(), dateStr = fmtDate(now);
+  const workDays = (state.settings.workDays && state.settings.workDays.length) ? state.settings.workDays : [0,1,2,3,4];
+  if(!workDays.includes(now.getDay())) return;
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const openMin = timeToMin(state.settings.startTime || '08:00') - 15, endMin = timeToMin(state.settings.endTime || '14:00');
+  if(nowMin < openMin || nowMin >= endMin) return;
+  const key = sup.id + ':' + dateStr, st = state.records[key];
+  if(state.records[key + ':time'] || st === 'excused' || st === 'excusedAbsent') return arrHideBanner();
+  const dist = haversine(pos.coords.latitude, pos.coords.longitude, g.lat, g.lng);
+  if(dist > (Number(g.radius) || 150)) return;
+  const doneKey = 'hadeerArrDone';
+  let done = ''; try{ done = localStorage.getItem(doneKey) || ''; }catch(e){}
+  if(done === sup.id + '_' + dateStr) return;
+  try{ localStorage.setItem(doneKey, sup.id + '_' + dateStr); }catch(e){}
+  if(!nCfg().on.arrive) return;
+  notify({ id:'arrive_' + sup.id + '_' + dateStr, to:nSupTo(sup.id), type:'arrive', supId:sup.id, date:dateStr, title:'وصلت إلى موقع الدوام', body:'لا تنسَ تسجيل حضورك الآن' });
+  arrShowBanner(sup);
+  if(nCfg().sound) nBeep();
+  if(document.hidden) nShowBrowser([{ type:'arrive' }]);
+}
+
+function arrShowBanner(sup){
+  let b = $('#arriveBanner');
+  if(!b){
+    b = document.createElement('div'); b.id = 'arriveBanner'; b.className = 'arrive-banner'; b.setAttribute('role', 'alert');
+    b.innerHTML = '<span class="ab-ic">' + ic('map-pin') + '</span><div class="ab-t"><b></b><small>سجّل حضورك الآن</small></div><button type="button" class="primary-btn" id="arriveGo">تسجيل الحضور</button><button type="button" class="icon-btn" id="arriveClose" aria-label="إغلاق">' + ic('x', 'sm') + '</button>';
+    document.body.appendChild(b);
+  }
+  b.querySelector('b').textContent = 'حيّاك ' + sup.name + '، وصلت إلى موقع الدوام';
+  b.hidden = false;
+}
+function arrHideBanner(){ const b = $('#arriveBanner'); if(b) b.hidden = true; }
+document.addEventListener('click', e => {
+  if(e.target.closest('#arriveGo')){ arrHideBanner(); goTab('checkin'); }
+  else if(e.target.closest('#arriveClose')) arrHideBanner();
+});
+
+function renderArrive(){
+  const st = $('#arriveStatus'), btn = $('#arriveBtn'); if(!st) return;
+  const g = (state.settings && state.settings.geo) || {}, p = arrPref();
+  const geoOk = g.enabled && g.lat != null && g.lng != null;
+  if(!geoOk){ st.textContent = 'تقييد الموقع غير مفعّل من الإدارة، فلا حاجة للتذكير'; btn.disabled = true; btn.textContent = 'تفعيل التذكير'; return; }
+  btn.disabled = false;
+  const mine = p && p.on && p.supId === meSup;
+  btn.textContent = mine ? 'إيقاف التذكير' : 'تفعيل التذكير';
+  st.textContent = !mine ? 'غير مفعّل على هذا الجهاز' : arrStatus === 'denied' ? 'مفعّل لكن الموقع محظور من إعدادات المتصفح' : arrStatus === 'error' ? 'مفعّل، وتعذّر تحديد الموقع حاليًا' : 'مفعّل على هذا الجهاز';
+}
+document.addEventListener('click', async e => {
+  if(!e.target.closest('#arriveBtn')) return;
+  const p = arrPref();
+  if(p && p.on && p.supId === meSup){ arrSet(null); arrSync(); showToast('تم إيقاف التذكير'); return; }
+  if(!meSup) return;
+  try{ await getPosition(); }
+  catch(err){ showToast(err && err.code === 1 ? 'اسمح للموقع من إعدادات المتصفح أولًا' : 'تعذّر تحديد موقعك، تأكد من تشغيل GPS'); return; }
+  arrSet({ supId:meSup, on:true });
+  if('Notification' in window && Notification.permission === 'default'){ try{ Notification.requestPermission(); }catch(e){} }
+  arrSync(); showToast('تم تفعيل التذكير على هذا الجهاز');
 });
 
 // init
