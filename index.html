@@ -442,6 +442,59 @@ table.heatmap th{ font-size:10.5px; color:var(--slate); font-weight:800; padding
   .card{ padding:16px; border-radius:var(--r-md); }
 }
 
+/* ---------- مركز الإشعارات ---------- */
+.bell-wrap{ position:relative; }
+.bell-btn{ position:relative; width:42px; height:42px; border:1px solid var(--line); background:#fff; border-radius:12px; display:grid; place-items:center; color:var(--g800); }
+.bell-btn:hover{ background:var(--g50); border-color:var(--g500); }
+.bell-btn.ring .ic{ animation:bellRing .9s ease 1; transform-origin:50% 10%; }
+@keyframes bellRing{ 0%,100%{ transform:rotate(0); } 15%{ transform:rotate(16deg); } 30%{ transform:rotate(-14deg); } 45%{ transform:rotate(10deg); } 60%{ transform:rotate(-8deg); } 75%{ transform:rotate(4deg); } }
+@media(prefers-reduced-motion:reduce){ .bell-btn.ring .ic{ animation:none; } .n-item.fresh{ animation:none !important; } }
+.bell-badge{ position:absolute; top:-6px; inset-inline-start:-6px; min-width:20px; height:20px; padding:0 5px; border-radius:999px; background:var(--absent); color:#fff; font-size:12px; font-weight:900; display:grid; place-items:center; border:2px solid #fff; line-height:1; }
+.bell-badge[hidden], .nav-badge[hidden]{ display:none; }
+.notif-pop{ position:absolute; top:calc(100% + 10px); left:0; width:390px; max-width:calc(100vw - 24px); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md); box-shadow:var(--sh-2); z-index:130; overflow:hidden; }
+.notif-pop[hidden]{ display:none; }
+.np-pop-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 14px; border-bottom:1px solid var(--line-2); font-weight:900; }
+.np-pop-list{ max-height:min(420px, 60vh); overflow:auto; }
+.np-pop-foot{ padding:8px; border-top:1px solid var(--line-2); text-align:center; }
+.n-item{ display:flex; gap:12px; align-items:flex-start; padding:12px 14px; border-bottom:1px solid var(--line-2); cursor:pointer; position:relative; background:var(--surface); }
+.n-item:last-child{ border-bottom:none; }
+.n-item:hover{ background:var(--g50); }
+.n-item.unread{ background:var(--tone-bg); }
+.n-item.unread::before{ content:''; position:absolute; inset-inline-end:0; top:0; bottom:0; width:4px; background:var(--tone); }
+.n-item.fresh{ animation:nFresh .9s ease 1; }
+@keyframes nFresh{ from{ transform:translateY(-6px); opacity:0; } to{ transform:none; opacity:1; } }
+.n-ic{ flex:none; width:38px; height:38px; border-radius:12px; display:grid; place-items:center; background:var(--tone-bg); color:var(--tone-ink); }
+.n-item.unread .n-ic{ background:#fff; }
+.n-main{ flex:1; min-width:0; }
+.n-title{ font-weight:900; font-size:14px; color:var(--ink); }
+.n-body{ font-size:13px; color:var(--slate); margin-top:2px; line-height:1.7; }
+.n-time{ font-size:12px; color:var(--slate-2); margin-top:3px; }
+.n-act{ display:flex; gap:2px; flex:none; }
+.n-act .icon-btn{ width:32px; height:32px; background:transparent; color:var(--slate-2); }
+.n-act .icon-btn:hover{ background:var(--line-2); color:var(--ink); }
+.tone-success{ --tone:var(--present); --tone-bg:var(--present-bg); --tone-ink:var(--present-ink); }
+.tone-danger{ --tone:var(--absent); --tone-bg:var(--absent-bg); --tone-ink:var(--absent-ink); }
+.tone-warn{ --tone:var(--late); --tone-bg:var(--late-bg); --tone-ink:var(--late-ink); }
+.tone-info{ --tone:var(--permit); --tone-bg:var(--permit-bg); --tone-ink:var(--permit-ink); }
+.np-bar{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+.np-filters{ display:flex; gap:6px; }
+.np-filters button{ border:1.5px solid var(--line); background:#fff; padding:6px 14px; border-radius:999px; font-weight:800; font-size:13px; color:var(--slate); }
+.np-filters button.on{ background:var(--g100); border-color:var(--g500); color:var(--g800); }
+.np-tools{ display:flex; gap:8px; flex-wrap:wrap; }
+.np-tools button{ border:1.5px solid var(--line); background:#fff; padding:6px 13px; border-radius:10px; font-weight:800; font-size:13px; color:var(--slate); display:inline-flex; align-items:center; gap:6px; }
+.np-tools button:hover{ background:var(--g50); border-color:var(--g500); color:var(--g800); }
+.np-tools button.danger:hover{ background:var(--absent-bg); border-color:var(--absent); color:var(--absent-ink); }
+#npList .n-item{ border:1px solid var(--line-2); border-radius:var(--r-md); margin-bottom:8px; }
+.np-empty{ text-align:center; padding:34px 10px; color:var(--slate); font-weight:700; }
+.np-sg{ margin-bottom:16px; }
+.np-sg h4{ margin:0 0 10px; font-size:14px; font-weight:900; color:var(--ink); }
+.np-grid{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:2px 18px; }
+.np-grid .toggle-row{ margin-bottom:10px; }
+@media(max-width:700px){
+  .np-grid{ grid-template-columns:1fr; }
+  .notif-pop{ position:fixed; top:64px; left:12px; right:12px; width:auto; max-width:none; }
+}
+
 /* ---------- الطباعة ---------- */
 @media print{
   .sidebar, .topbar, .bottom-bar, .scrim, .toast, .modal{ display:none !important; }
@@ -491,6 +544,7 @@ table.heatmap th{ font-size:10.5px; color:var(--slate); font-weight:800; padding
         <button class="nav-item admin-only" data-tab="monthly" style="display:none;"><svg class="ic" aria-hidden="true"><use href="#i-chart-column"/></svg><span class="lbl">تقرير الفترة</span></button>
         <button class="nav-item admin-only" data-tab="stats" style="display:none;"><svg class="ic" aria-hidden="true"><use href="#i-chart-pie"/></svg><span class="lbl">الإحصائيات</span></button>
         <button class="nav-item admin-only" data-tab="requests" style="display:none;"><svg class="ic" aria-hidden="true"><use href="#i-inbox"/></svg><span class="lbl">الطلبات</span><span class="nav-badge" data-badge="requests" style="display:none;"></span></button>
+        <button class="nav-item admin-only" data-tab="notifs" style="display:none;"><svg class="ic" aria-hidden="true"><use href="#i-bell"/></svg><span class="lbl">الإشعارات</span><span class="nav-badge" data-badge="notifs" style="display:none;"></span></button>
         <button class="nav-item admin-only" data-tab="qrgeo" style="display:none;"><svg class="ic" aria-hidden="true"><use href="#i-qr-code"/></svg><span class="lbl">الباركود والموقع</span></button>
       </div>
       <div class="sb-group sysadmin-only" style="display:none;">
@@ -518,6 +572,14 @@ table.heatmap th{ font-size:10.5px; color:var(--slate); font-weight:800; padding
           <button class="nav-item active" data-tab="checkin"><svg class="ic" aria-hidden="true"><use href="#i-circle-check-big"/></svg><span class="lbl">تسجيل حضوري</span></button>
           <button class="nav-item" data-tab="me"><svg class="ic" aria-hidden="true"><use href="#i-user-round"/></svg><span class="lbl">سجلي وطلباتي</span></button>
         </nav>
+        <div class="bell-wrap" id="bellWrap" style="display:none;">
+          <button class="bell-btn" id="bellBtn" type="button" aria-label="الإشعارات" aria-haspopup="true" aria-expanded="false"><svg class="ic" aria-hidden="true"><use href="#i-bell"/></svg><span class="bell-badge" id="bellBadge" hidden>0</span></button>
+          <div class="notif-pop" id="notifPop" hidden role="dialog" aria-label="قائمة الإشعارات">
+            <div class="np-pop-head"><span>الإشعارات</span><button class="link-btn" id="popReadAll" type="button">تحديد الكل كمقروء</button></div>
+            <div class="np-pop-list" id="popList"></div>
+            <div class="np-pop-foot"><button class="link-btn" type="button" id="popAllBtn">عرض كل الإشعارات</button></div>
+          </div>
+        </div>
         <div class="tb-clock" id="tbClock">--:--</div>
         <button class="btn-ghost" id="loginTopBtn" data-tab="login"><svg class="ic" aria-hidden="true"><use href="#i-log-in"/></svg><span>دخول الإدارة</span></button>
       </header>
@@ -839,6 +901,28 @@ table.heatmap th{ font-size:10.5px; color:var(--slate); font-weight:800; padding
         <button id="addSupBtn">إضافة</button>
       </div>
       <div id="manageList"></div>
+    </div>
+  </section>
+
+  <!-- NOTIFICATIONS -->
+  <section id="notifs">
+    <div class="card">
+      <div class="np-bar">
+        <div class="np-filters" id="npFilters">
+          <button type="button" data-nf="all" class="on">الكل</button>
+          <button type="button" data-nf="unread">غير المقروءة</button>
+        </div>
+        <div class="np-tools">
+          <button type="button" id="npReadAll"><svg class="ic sm" aria-hidden="true"><use href="#i-check"/></svg><span>تحديد الكل كمقروء</span></button>
+          <button type="button" id="npClearAll" class="danger"><svg class="ic sm" aria-hidden="true"><use href="#i-trash-2"/></svg><span>مسح الكل</span></button>
+        </div>
+      </div>
+      <div id="npList"></div>
+      <div class="note" id="npNote"></div>
+    </div>
+    <div class="card" id="npSettings" style="display:none;">
+      <div class="block-title" style="font-size:15px; font-weight:900; margin-bottom:12px;">إعدادات الإشعارات</div>
+      <div id="npSettingsBody"></div>
     </div>
   </section>
 
@@ -3250,6 +3334,7 @@ function tick(){
   $('#tbClock').textContent = now.toLocaleTimeString('ar-SA', { hour:'2-digit', minute:'2-digit' });
   $('#pageSub').textContent = now.toLocaleDateString('ar-SA-u-ca-islamic-umalqura', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
   runEndOfDayAutoProcessing();
+  nSync();
 }
 setInterval(tick, 1000);
 
@@ -3274,6 +3359,7 @@ function closeDay(dateStr){
     if(!status && !hasIn){
       // لم يسجل حضوره إطلاقًا → غائب تلقائيًا
       state.records[key] = 'absent';
+      nOnAbsent(sup, dateStr);
       count++;
     } else if(hasIn && !hasOut){
       // سجل حضوره ولم يسجل خروجه → خروج تلقائي بوقت نهاية الدوام
@@ -3381,6 +3467,7 @@ async function doCheckin(){
     } else {
       resultBox.innerHTML = `<div class="checkin-result late">تم تسجيل حضور ${sup.name} متأخرًا، الساعة ${state.records[key + ':time']}</div>`;
     }
+    nOnCheckin(sup, status, state.records[key + ':time'], dateStr);
   } else {
     // تسجيل الخروج
     const locOut = await checkLocationAllowed(resultBox);
@@ -3393,6 +3480,7 @@ async function doCheckin(){
       permNote = ' — سُجّل استئذانك المعتمد';
     }
     saveState();
+    nOnCheckout(sup, state.records[key + ':outtime'], dateStr);
     $('#checkinPin').value = '';
     resultBox.innerHTML = `<div class="checkin-result ok">تم تسجيل خروج ${sup.name}، الساعة ${state.records[key + ':outtime']}${permNote}</div>`;
   }
@@ -3517,6 +3605,7 @@ $('#dailyList').addEventListener('click', e => {
     if(!state.records[key + ':time']){
       state.records[key + ':time'] = new Date().toLocaleTimeString('ar-SA', { hour:'2-digit', minute:'2-digit' });
     }
+    if(status === 'absent'){ const s0 = state.supervisors.find(x => x.id === supId); if(s0) nOnAbsent(s0, dateStr); }
   }
   saveState();
   renderDaily();
@@ -4214,6 +4303,7 @@ $('#requests').addEventListener('click', async e => {
   try{
     const r = await decideRequest(id, ap ? 'approved' : 'rejected', note);
     if(ap) applyApprovedRequest(r);
+    nOnRequestDecided(r);
     showToast(ap ? 'تمت الموافقة على الطلب' : 'تم رفض الطلب');
   }catch(err){
     showToast(err && err.message === 'stale' ? 'تم البت في هذا الطلب مسبقًا' : 'تعذّر تنفيذ العملية');
@@ -4370,6 +4460,7 @@ $('#reqSubmitBtn').addEventListener('click', async () => {
   btn.disabled = true;
   try{
     await addRequest(req);
+    nOnRequestNew(req);
     $('#reqReason').value = '';
     res.innerHTML = '<div class="checkin-result ok">تم إرسال طلبك، سيراجعه مشرف المتابعة</div>';
   }catch(e){
@@ -4378,7 +4469,7 @@ $('#reqSubmitBtn').addEventListener('click', async () => {
 });
 
 // ---------- NAVIGATION ----------
-const TAB_TITLES = { checkin:'تسجيل الحضور', me:'سجلي وطلباتي', dashboard:'لوحة اليوم', daily:'التحضير اليومي', monthly:'تقرير الفترة', stats:'الإحصائيات', requests:'الطلبات', qrgeo:'الباركود والموقع', manage:'إدارة المشرفين', accounts:'الحسابات والصلاحيات', login:'دخول الإدارة' };
+const TAB_TITLES = { notifs:'الإشعارات', checkin:'تسجيل الحضور', me:'سجلي وطلباتي', dashboard:'لوحة اليوم', daily:'التحضير اليومي', monthly:'تقرير الفترة', stats:'الإحصائيات', requests:'الطلبات', qrgeo:'الباركود والموقع', manage:'إدارة المشرفين', accounts:'الحسابات والصلاحيات', login:'دخول الإدارة' };
 const ADMIN_TABS = ['dashboard','daily','monthly','stats','requests','qrgeo'];
 const SYS_TABS = ['manage','accounts'];
 
@@ -4396,6 +4487,7 @@ function goTab(tab){
   if(tab === 'requests') renderRequestsAdmin();
   if(tab === 'qrgeo'){ drawQr(); renderGeo(); }
   if(tab === 'me') renderMe();
+  if(tab === 'notifs') renderNotifPage();
   try{ window.scrollTo(0, 0); }catch(e){}
 }
 
@@ -4404,6 +4496,7 @@ document.addEventListener('click', e => {
   if(!btn) return;
   const tab = btn.dataset.tab;
   if(btn.id === 'loginTabBtn' && isAdmin){ auth.signOut(); return; }
+  if(tab === 'notifs' && !isAdmin && !meSup) return;
   if(ADMIN_TABS.includes(tab) && !isAdmin) return;
   if(SYS_TABS.includes(tab) && currentRole !== 'admin') return;
   goTab(tab);
@@ -4727,6 +4820,357 @@ function renderAll(){
   renderRequestsAll();
   renderDashboard();
 }
+
+// ---------- مركز الإشعارات ----------
+// التخزين: مجموعة Firestore اسمها notifs (دائمة وتتزامن بين الأجهزة).
+// to = 'staff' (للمسؤولين: مدير النظام ومشرف المتابعة) أو 'sup:<id>' (لمشرف بعينه).
+// معرّف الوثيقة محدد مسبقًا لكل حدث، فلا يتكرر الإشعار لنفس الحدث.
+const NTYPES = {
+  checkin:  { tone:'success', icon:'user-check',    label:'حضور مشرف',            grp:'staff', generic:'تسجيل حضور' },
+  checkout: { tone:'info',    icon:'door-open',     label:'انصراف مشرف',          grp:'staff', generic:'تسجيل انصراف' },
+  late:     { tone:'warn',    icon:'alarm-clock',   label:'تأخر مشرف',            grp:'staff', generic:'تنبيه تأخر' },
+  absent:   { tone:'danger',  icon:'user-x',        label:'تسجيل غياب',           grp:'staff', generic:'تسجيل غياب' },
+  noshow:   { tone:'danger',  icon:'circle-alert',  label:'عدم تسجيل الحضور',     grp:'staff', generic:'تنبيه عدم حضور' },
+  repeat:   { tone:'danger',  icon:'triangle-alert',label:'تكرار التأخر',         grp:'staff', generic:'تنبيه تكرار تأخر' },
+  requests: { tone:'info',    icon:'inbox',         label:'الطلبات الجديدة والمعلّقة', grp:'staff', generic:'طلب جديد' },
+  selfconfirm:{ tone:'success',icon:'badge-check',  label:'تأكيد تسجيل حضوري وانصرافي', grp:'sup', generic:'تأكيد تسجيل' },
+  remind:   { tone:'info',    icon:'alarm-clock',   label:'تذكير ببداية الدوام',  grp:'sup',   generic:'تذكير بالدوام' },
+  selflate: { tone:'warn',    icon:'hourglass',     label:'تنبيه التأخر والغياب لي', grp:'sup', generic:'تنبيه' },
+  decision: { tone:'info',    icon:'send',          label:'قرار طلب الإجازة أو الاستئذان', grp:'sup', generic:'قرار على طلبك' }
+};
+const N_DEFAULTS = { remindMin:15, noshowMin:30, sound:true, browser:true };
+const N_PRUNE_DAYS = 30;
+
+function nCfg(){
+  const c = (state.settings && state.settings.notif) || {};
+  const on = {};
+  Object.keys(NTYPES).forEach(k => { on[k] = !(c.on && c.on[k] === false); });
+  const num = (v, d) => (v === undefined || v === null || v === '' || isNaN(Number(v))) ? d : Math.max(0, Math.min(600, Number(v)));
+  return {
+    on,
+    remindMin: num(c.remindMin, N_DEFAULTS.remindMin),
+    noshowMin: num(c.noshowMin, N_DEFAULTS.noshowMin),
+    sound: c.sound !== false,
+    browser: c.browser !== false
+  };
+}
+
+const _nAttempted = new Set();
+async function notify(n){
+  const cfgKey = n.cfg || n.type;
+  if(!nCfg().on[cfgKey]) return;
+  if(_nAttempted.has(n.id)) return;
+  _nAttempted.add(n.id);
+  const ref = db.collection('notifs').doc(n.id);
+  const doc = {
+    to:n.to, type:n.type, tone:n.tone || NTYPES[n.type].tone, title:n.title, body:n.body || '',
+    supId:n.supId || '', date:n.date || '', ts:new Date().toISOString(),
+    read:false, hidden:false, readBy:[], hiddenBy:[]
+  };
+  try{
+    // المسؤول المسجّل يتحقق أولًا حتى لا يعيد إنشاء إشعار موجود، أما المشرف فتمنعه القواعد من الكتابة فوق الموجود
+    if(auth.currentUser){ const s = await ref.get(); if(s.exists) return; }
+    await ref.set(doc);
+  }catch(e){ /* موجود مسبقًا أو لا اتصال: يُتجاهل */ }
+}
+
+// ---------- ربط الأحداث ----------
+const nSupTo = id => 'sup:' + id;
+function nOnCheckin(sup, status, time, dateStr){
+  if(status === 'late'){
+    notify({ id:'late_' + sup.id + '_' + dateStr, to:'staff', type:'late', supId:sup.id, date:dateStr, title:sup.name + ' تأخر عن الدوام', body:'سجّل حضوره متأخرًا الساعة ' + time });
+    notify({ id:'selfin_' + sup.id + '_' + dateStr, to:nSupTo(sup.id), type:'selflate', cfg:'selflate', tone:'warn', supId:sup.id, date:dateStr, title:'تم تسجيل حضورك متأخرًا', body:'الساعة ' + time });
+    nCheckRepeat(sup, dateStr);
+  } else {
+    notify({ id:'in_' + sup.id + '_' + dateStr, to:'staff', type:'checkin', supId:sup.id, date:dateStr, title:'سجّل ' + sup.name + ' حضوره', body:'الساعة ' + time });
+    notify({ id:'selfin_' + sup.id + '_' + dateStr, to:nSupTo(sup.id), type:'selfconfirm', tone:'success', supId:sup.id, date:dateStr, title:'تم تسجيل حضورك بنجاح', body:'الساعة ' + time });
+  }
+}
+function nOnCheckout(sup, time, dateStr){
+  notify({ id:'out_' + sup.id + '_' + dateStr, to:'staff', type:'checkout', supId:sup.id, date:dateStr, title:'سجّل ' + sup.name + ' انصرافه', body:'الساعة ' + time });
+  notify({ id:'selfout_' + sup.id + '_' + dateStr, to:nSupTo(sup.id), type:'selfconfirm', tone:'success', supId:sup.id, date:dateStr, title:'تم تسجيل انصرافك', body:'الساعة ' + time });
+}
+function nOnAbsent(sup, dateStr){
+  const lbl = hLabel(dateStr);
+  notify({ id:'absent_' + sup.id + '_' + dateStr, to:'staff', type:'absent', supId:sup.id, date:dateStr, title:'سُجّل غياب ' + sup.name, body:'ليوم ' + lbl });
+  notify({ id:'selfabsent_' + sup.id + '_' + dateStr, to:nSupTo(sup.id), type:'selflate', tone:'danger', supId:sup.id, date:dateStr, title:'سُجّل عليك غياب', body:'ليوم ' + lbl });
+}
+function nCheckRepeat(sup, dateStr){
+  try{
+    const row = repeatLateThisMonth().find(r => r.sup.id === sup.id);
+    if(row) notify({ id:'repeat_' + sup.id + '_' + dateStr, to:'staff', type:'repeat', supId:sup.id, date:dateStr, title:'تكرر تأخر ' + sup.name, body:'تأخر ' + row.c.late + ' مرات هذا الشهر' });
+  }catch(e){}
+}
+function nOnRequestNew(r){
+  notify({ id:'reqnew_' + r.id, to:'staff', type:'requests', supId:r.supId, date:r.from, title:'طلب ' + (REQ_TYPE[r.type] || '') + ' جديد', body:r.supName + ' — ' + reqWhen(r) });
+}
+function nOnRequestDecided(r){
+  const ok = r.status === 'approved';
+  notify({ id:'reqdec_' + r.id, to:nSupTo(r.supId), type:'decision', tone: ok ? 'success' : 'danger', supId:r.supId, date:r.from,
+    title: ok ? 'تمت الموافقة على طلبك' : 'تم رفض طلبك',
+    body:(REQ_TYPE[r.type] || '') + ' — ' + reqWhen(r) + (r.note ? ' — السبب: ' + r.note : '') });
+}
+
+// ---------- مُقيّم الوقت: تذكير، عدم حضور، طلبات معلّقة ----------
+// يعمل داخل أي صفحة مفتوحة، ولا يعمل والموقع مغلق (لا يوجد خادم خلفي)
+function nEvaluate(){
+  if(!state.supervisors || !state.supervisors.length) return;
+  const now = new Date(), dateStr = fmtDate(now);
+  const workDays = (state.settings.workDays && state.settings.workDays.length) ? state.settings.workDays : [0,1,2,3,4];
+  if(!workDays.includes(now.getDay())) return;
+  const cfg = nCfg();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const startMin = timeToMin(state.settings.startTime || '08:00');
+  const endMin = timeToMin(state.settings.endTime || '14:00');
+  if(nowMin >= endMin) return;
+  state.supervisors.forEach(sup => {
+    const key = sup.id + ':' + dateStr;
+    const st = state.records[key], hasIn = !!state.records[key + ':time'];
+    if(hasIn || st === 'excused' || st === 'excusedAbsent' || st === 'absent') return;
+    if(nowMin >= startMin - cfg.remindMin && nowMin < startMin + cfg.noshowMin){
+      notify({ id:'remind_' + sup.id + '_' + dateStr, to:nSupTo(sup.id), type:'remind', supId:sup.id, date:dateStr, title:'تذكير: يبدأ دوامك الساعة ' + timeAr(state.settings.startTime || '08:00'), body:'سجّل حضورك من صفحة التسجيل' });
+    }
+    if(nowMin >= startMin + cfg.noshowMin){
+      notify({ id:'noshow_' + sup.id + '_' + dateStr, to:'staff', type:'noshow', supId:sup.id, date:dateStr, title:'لم يسجّل ' + sup.name + ' حضوره', body:'مضى ' + cfg.noshowMin + ' دقيقة على بداية الدوام' });
+      notify({ id:'latewarn_' + sup.id + '_' + dateStr, to:nSupTo(sup.id), type:'selflate', tone:'warn', supId:sup.id, date:dateStr, title:'لم تسجّل حضورك بعد', body:'بدأ الدوام الساعة ' + timeAr(state.settings.startTime || '08:00') });
+    }
+  });
+  const old = requests.filter(r => r.status === 'pending' && r.createdAt && (Date.now() - Date.parse(r.createdAt)) > 2 * 3600 * 1000);
+  if(old.length){
+    notify({ id:'pending_' + dateStr, to:'staff', type:'requests', tone:'info', date:dateStr, title:'طلبات بانتظار الموافقة', body:old.length + ' طلب لم يُبتّ فيه بعد' });
+  }
+}
+setInterval(nEvaluate, 30000);
+
+// ---------- الاشتراك والعرض ----------
+let nMode = '', nKey = '', nIdent = '', nUnsub = null, nList = [], nKnown = null, nError = false, nFilter = 'all', nPruned = false, nLastSound = 0, nBellRingT = null;
+const nMe = () => ((auth.currentUser && auth.currentUser.email) || '').toLowerCase();
+
+function nSync(){
+  const mode = isAdmin ? 'staff' : (meSup ? 'sup' : '');
+  const key = mode === 'staff' ? 'staff' : (mode === 'sup' ? nSupTo(meSup) : '');
+  const wrap = $('#bellWrap');
+  if(wrap) wrap.style.display = mode ? '' : 'none';
+  if(!mode && $('#notifs').classList.contains('active')) goTab('checkin');
+  const ident = key + '|' + (mode === 'staff' ? nMe() : '');
+  if(ident === nIdent) return;
+  nIdent = ident;
+  if(nUnsub){ nUnsub(); nUnsub = null; }
+  nKey = key; nMode = mode; nList = []; nKnown = null; nError = false;
+  closePop();
+  if(!key){ renderNotifUI(); return; }
+  nUnsub = db.collection('notifs').where('to', '==', key).onSnapshot(s => {
+    nError = false;
+    nList = s.docs.map(d => Object.assign({ id:d.id }, d.data()));
+    nArrivals();
+    renderNotifUI();
+  }, err => { console.error(err); nError = true; renderNotifUI(); });
+  if(mode === 'staff') nPrune();
+}
+
+async function nPrune(){
+  if(nPruned) return; nPruned = true;
+  try{
+    const cutoff = new Date(Date.now() - N_PRUNE_DAYS * 86400000).toISOString();
+    const s = await db.collection('notifs').where('ts', '<', cutoff).limit(200).get();
+    if(s.empty) return;
+    const b = db.batch(); s.docs.forEach(d => b.delete(d.ref)); await b.commit();
+  }catch(e){ /* لا يؤثر على العمل */ }
+}
+
+function nVisible(){
+  const me = nMe();
+  return nList.filter(n => nMode === 'staff' ? !(n.hiddenBy || []).includes(me) : !n.hidden)
+              .sort((a, b) => (b.ts || '').localeCompare(a.ts || ''));
+}
+const nIsUnread = n => nMode === 'staff' ? !(n.readBy || []).includes(nMe()) : !n.read;
+
+// وصول إشعار جديد: صوت + اهتزاز الجرس + إشعار المتصفح (فقط إن كانت الصفحة في الخلفية)
+function nArrivals(){
+  const ids = new Set(nList.map(n => n.id));
+  if(nKnown === null){ nKnown = ids; return; }
+  const fresh = nList.filter(n => !nKnown.has(n.id) && nIsUnread(n) && (Date.now() - Date.parse(n.ts)) < 120000);
+  nKnown = ids;
+  nFreshIds = new Set(fresh.map(n => n.id));
+  if(!fresh.length) return;
+  const bb = $('#bellBtn');
+  if(bb){ bb.classList.remove('ring'); void bb.offsetWidth; bb.classList.add('ring'); clearTimeout(nBellRingT); nBellRingT = setTimeout(() => bb.classList.remove('ring'), 1200); }
+  const cfg = nCfg();
+  if(cfg.sound && Date.now() - nLastSound > 3000){ nLastSound = Date.now(); nBeep(); }
+  if(cfg.browser && document.hidden) nShowBrowser(fresh);
+  setTimeout(() => { nFreshIds = new Set(); }, 1500);
+}
+let nFreshIds = new Set();
+
+let _nAudio = null;
+function nBeep(){
+  try{
+    const AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
+    _nAudio = _nAudio || new AC();
+    if(_nAudio.state === 'suspended') _nAudio.resume();
+    const t = _nAudio.currentTime;
+    [[880, 0], [1175, 0.13]].forEach(([f, d]) => {
+      const o = _nAudio.createOscillator(), g = _nAudio.createGain();
+      o.type = 'sine'; o.frequency.value = f; o.connect(g); g.connect(_nAudio.destination);
+      g.gain.setValueAtTime(0.0001, t + d); g.gain.exponentialRampToValueAtTime(0.18, t + d + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.22);
+      o.start(t + d); o.stop(t + d + 0.25);
+    });
+  }catch(e){}
+}
+
+// إشعارات المتصفح: تظهر ما دام الموقع مفتوحًا (ولو في تبويب خلفي). لا تصل والموقع مغلق (يحتاج خادمًا خلفيًا).
+// نص الإشعار عام عمدًا بلا أسماء أو تفاصيل حتى لا يظهر شيء حساس على شاشة القفل.
+function nShowBrowser(list){
+  if(!('Notification' in window) || Notification.permission !== 'granted') return;
+  const title = 'حاضر';
+  const body = list.length === 1 ? ((NTYPES[list[0].type] || {}).generic || 'إشعار جديد') + ' — افتح الموقع للتفاصيل' : 'لديك ' + list.length + ' إشعارات جديدة';
+  const opts = { body, tag:'hadeer-notif', icon:'brand/icon-192.png', dir:'rtl', lang:'ar' };
+  try{
+    if(navigator.serviceWorker && navigator.serviceWorker.getRegistration){
+      navigator.serviceWorker.getRegistration().then(reg => { if(reg) reg.showNotification(title, opts); else new Notification(title, opts); }).catch(() => { try{ new Notification(title, opts); }catch(e){} });
+    } else new Notification(title, opts);
+  }catch(e){}
+}
+async function nEnableBrowser(){
+  if(!('Notification' in window)){ showToast('متصفحك لا يدعم إشعارات المتصفح'); return; }
+  try{
+    const p = await Notification.requestPermission();
+    if(p === 'granted' && 'serviceWorker' in navigator){ try{ await navigator.serviceWorker.register('sw.js'); }catch(e){} }
+    showToast(p === 'granted' ? 'تم تفعيل إشعارات المتصفح لهذا الجهاز' : 'لم يتم السماح بالإشعارات');
+  }catch(e){ showToast('تعذّر طلب الإذن'); }
+  renderNotifSettings();
+}
+
+const nWhen = ts => {
+  const d = new Date(ts);
+  return d.toLocaleDateString('ar-SA-u-ca-islamic-umalqura', { day:'numeric', month:'long' }) + ' · ' + d.toLocaleTimeString('ar-SA', { hour:'2-digit', minute:'2-digit' });
+};
+function nItemHtml(n){
+  const meta = NTYPES[n.type] || { icon:'bell' };
+  const unread = nIsUnread(n);
+  return '<div class="n-item tone-' + esc(n.tone || 'info') + (unread ? ' unread' : '') + (nFreshIds.has(n.id) ? ' fresh' : '') + '" data-nid="' + esc(n.id) + '">' +
+    '<span class="n-ic">' + ic(meta.icon) + '</span>' +
+    '<div class="n-main"><div class="n-title">' + esc(n.title) + '</div>' + (n.body ? '<div class="n-body">' + esc(n.body) + '</div>' : '') + '<div class="n-time">' + nWhen(n.ts) + '</div></div>' +
+    '<div class="n-act">' + (unread ? '<button type="button" class="icon-btn" data-nread="' + esc(n.id) + '" title="تحديد كمقروء" aria-label="تحديد كمقروء">' + ic('check', 'sm') + '</button>' : '') +
+    '<button type="button" class="icon-btn" data-ndel="' + esc(n.id) + '" title="حذف" aria-label="حذف الإشعار">' + ic('trash-2', 'sm') + '</button></div></div>';
+}
+
+function renderNotifUI(){
+  const vis = nVisible();
+  const unread = vis.filter(nIsUnread).length;
+  const bb = $('#bellBadge');
+  if(bb){ bb.hidden = unread === 0; bb.textContent = unread > 99 ? '99+' : unread; }
+  const bt = $('#bellBtn'); if(bt) bt.setAttribute('aria-label', unread ? 'الإشعارات، ' + unread + ' غير مقروء' : 'الإشعارات');
+  document.querySelectorAll('.nav-badge[data-badge="notifs"]').forEach(b => { b.textContent = unread; b.style.display = unread > 0 ? '' : 'none'; });
+  const errMsg = '<div class="np-empty">تعذّر تحميل الإشعارات. حدّث قواعد Firestore حسب التعليمات ثم أعد المحاولة.</div>';
+  const empty = '<div class="np-empty">لا توجد إشعارات</div>';
+  const pl = $('#popList'); if(pl) pl.innerHTML = nError ? errMsg : (vis.length ? vis.slice(0, 8).map(nItemHtml).join('') : empty);
+  renderNotifPage(vis);
+}
+function renderNotifPage(vis){
+  const box = $('#npList'); if(!box) return;
+  vis = vis || nVisible();
+  const list = nFilter === 'unread' ? vis.filter(nIsUnread) : vis;
+  box.innerHTML = nError ? '<div class="np-empty">تعذّر تحميل الإشعارات. حدّث قواعد Firestore حسب التعليمات ثم أعد المحاولة.</div>' :
+    (list.length ? list.map(nItemHtml).join('') : '<div class="np-empty">' + (nFilter === 'unread' ? 'لا توجد إشعارات غير مقروءة' : 'لا توجد إشعارات') + '</div>');
+  document.querySelectorAll('#npFilters button').forEach(b => b.classList.toggle('on', b.dataset.nf === nFilter));
+  $('#npNote').textContent = 'تُحفظ الإشعارات ' + N_PRUNE_DAYS + ' يومًا ثم تُحذف تلقائيًا.';
+  const adm = currentRole === 'admin';
+  $('#npSettings').style.display = adm ? '' : 'none';
+  if(adm) renderNotifSettings();
+}
+
+// ---------- الإجراءات ----------
+async function nMark(ids){
+  if(!ids.length) return;
+  const me = nMe();
+  try{
+    const b = db.batch();
+    ids.forEach(id => {
+      const ref = db.collection('notifs').doc(id);
+      b.update(ref, nMode === 'staff' ? { readBy: firebase.firestore.FieldValue.arrayUnion(me) } : { read:true });
+    });
+    await b.commit();
+  }catch(e){ showToast('تعذّر تحديث الإشعارات'); }
+}
+async function nHide(ids){
+  if(!ids.length) return;
+  const me = nMe();
+  try{
+    const b = db.batch();
+    ids.forEach(id => {
+      const ref = db.collection('notifs').doc(id);
+      b.update(ref, nMode === 'staff' ? { hiddenBy: firebase.firestore.FieldValue.arrayUnion(me) } : { hidden:true });
+    });
+    await b.commit();
+  }catch(e){ showToast('تعذّر حذف الإشعارات'); }
+}
+function nTarget(e){
+  const r = e.target.closest('[data-nread]'), d = e.target.closest('[data-ndel]'), it = e.target.closest('[data-nid]');
+  if(r){ nMark([r.dataset.nread]); e.stopPropagation(); return true; }
+  if(d){ nHide([d.dataset.ndel]); e.stopPropagation(); return true; }
+  if(it){
+    const n = nList.find(x => x.id === it.dataset.nid);
+    if(n){ if(nIsUnread(n)) nMark([n.id]); if(nMode === 'staff' && n.type === 'requests') { closePop(); goTab('requests'); } }
+    return true;
+  }
+  return false;
+}
+document.addEventListener('click', e => {
+  if(e.target.closest('#bellBtn')){ togglePop(); return; }
+  if(e.target.closest('#popReadAll')){ nMark(nVisible().filter(nIsUnread).map(n => n.id)); return; }
+  if(e.target.closest('#popAllBtn')){ closePop(); goTab('notifs'); return; }
+  if(e.target.closest('#popList, #npList')){ nTarget(e); return; }
+  if(e.target.closest('#npReadAll')){ nMark(nVisible().filter(nIsUnread).map(n => n.id)); return; }
+  if(e.target.closest('#npClearAll')){
+    const v = nVisible(); if(!v.length) return;
+    if(confirm('مسح كل الإشعارات؟')) nHide(v.map(n => n.id));
+    return;
+  }
+  const f = e.target.closest('#npFilters button'); if(f){ nFilter = f.dataset.nf; renderNotifPage(); return; }
+  if(!e.target.closest('#notifPop')) closePop();
+});
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closePop(); });
+function togglePop(){ const p = $('#notifPop'); if(p.hidden) openPop(); else closePop(); }
+function openPop(){ $('#notifPop').hidden = false; $('#bellBtn').setAttribute('aria-expanded', 'true'); }
+function closePop(){ const p = $('#notifPop'); if(p){ p.hidden = true; $('#bellBtn').setAttribute('aria-expanded', 'false'); } }
+
+// ---------- صفحة الإعدادات (مدير النظام) ----------
+function renderNotifSettings(){
+  const box = $('#npSettingsBody'); if(!box) return;
+  if(box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return; // لا نقاطع المستخدم أثناء الكتابة
+  const cfg = nCfg();
+  const group = g => Object.keys(NTYPES).filter(k => NTYPES[k].grp === g).map(k =>
+    '<label class="toggle-row"><input type="checkbox" data-non="' + k + '"' + (cfg.on[k] ? ' checked' : '') + '><span>' + NTYPES[k].label + '</span></label>').join('');
+  const perm = ('Notification' in window) ? Notification.permission : 'unsupported';
+  const permTxt = perm === 'granted' ? 'مفعّلة على هذا الجهاز' : perm === 'denied' ? 'محظورة من إعدادات المتصفح' : perm === 'unsupported' ? 'غير مدعومة في هذا المتصفح' : 'لم تُفعَّل على هذا الجهاز بعد';
+  box.innerHTML =
+    '<div class="np-sg"><h4>إشعارات المسؤولين</h4><div class="np-grid">' + group('staff') + '</div></div>' +
+    '<div class="np-sg"><h4>إشعارات المشرفين</h4><div class="np-grid">' + group('sup') + '</div></div>' +
+    '<div class="np-sg"><h4>التوقيت</h4>' +
+      '<div class="settings-row" style="margin-bottom:10px;"><label>تذكير المشرف قبل بداية الدوام بـ</label><input type="text" id="nsRemind" style="width:70px;" inputmode="numeric" value="' + cfg.remindMin + '"><label>دقيقة</label></div>' +
+      '<div class="settings-row" style="margin-bottom:10px;"><label>مدة السماح بالتأخير</label><input type="text" id="nsGrace" style="width:70px;" inputmode="numeric" value="' + (Number(state.settings.grace) || 0) + '"><label>دقيقة (نفس إعداد بداية الدوام)</label></div>' +
+      '<div class="settings-row"><label>تنبيه «لم يسجّل حضوره» بعد</label><input type="text" id="nsNoshow" style="width:70px;" inputmode="numeric" value="' + cfg.noshowMin + '"><label>دقيقة من بداية الدوام</label></div>' +
+      '<div class="note">الغياب النهائي يُسجَّل تلقائيًا عند وقت الخروج المعتمد كما هو، والتنبيه أعلاه إنذار مبكر قبل ذلك.</div></div>' +
+    '<div class="np-sg"><h4>الصوت وإشعارات المتصفح</h4>' +
+      '<label class="toggle-row"><input type="checkbox" id="nsSound"' + (cfg.sound ? ' checked' : '') + '><span>تشغيل صوت عند وصول إشعار</span></label>' +
+      '<label class="toggle-row"><input type="checkbox" id="nsBrowser"' + (cfg.browser ? ' checked' : '') + '><span>السماح بإشعارات المتصفح</span></label>' +
+      '<div class="settings-row"><span class="pin-tag">حالة هذا الجهاز: ' + permTxt + '</span>' + (perm === 'default' ? '<button type="button" class="primary-btn" id="nsEnableBrowser">تفعيل على هذا الجهاز</button>' : '') + '</div>' +
+      '<div class="note">إشعارات المتصفح تظهر ما دام الموقع مفتوحًا (ولو في تبويب آخر)، ولا تصل والموقع مغلق تمامًا، لأن ذلك يتطلب خادمًا خلفيًا (Firebase Cloud Messaging مع Cloud Functions). نص الإشعار عام بلا أسماء حتى لا يظهر شيء حساس على شاشة القفل.</div></div>' +
+    '<button type="button" class="primary-btn" id="nsSave">حفظ إعدادات الإشعارات</button>';
+}
+document.addEventListener('click', e => {
+  if(e.target.closest('#nsEnableBrowser')){ nEnableBrowser(); return; }
+  if(!e.target.closest('#nsSave')) return;
+  if(currentRole !== 'admin'){ showToast('هذه الصلاحية لمدير النظام فقط'); return; }
+  const on = {};
+  document.querySelectorAll('[data-non]').forEach(i => { on[i.dataset.non] = i.checked; });
+  const num = (sel, d) => { const v = Number($(sel).value); return isNaN(v) ? d : Math.max(0, Math.min(600, Math.round(v))); };
+  state.settings.notif = { on, remindMin:num('#nsRemind', 15), noshowMin:num('#nsNoshow', 30), sound:$('#nsSound').checked, browser:$('#nsBrowser').checked };
+  state.settings.grace = num('#nsGrace', Number(state.settings.grace) || 0);
+  saveState();
+  showToast('تم حفظ إعدادات الإشعارات');
+});
 
 // init
 $('#dailyDate').value = fmtDate(currentDate);

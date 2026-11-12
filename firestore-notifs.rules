@@ -1,0 +1,13 @@
+// أضف هذا الجزء داخل: match /databases/{database}/documents { ... } في قواعد Firestore (بجانب القواعد الحالية)
+match /notifs/{id} {
+  // أي جهاز يستطيع إنشاء إشعار (المشرفون يدخلون برمز لا بحساب)، بشكل محدد ومحدود الحجم
+  allow create: if request.resource.data.keys().hasOnly(['to','type','tone','title','body','supId','date','ts','read','hidden','readBy','hiddenBy'])
+                && request.resource.data.title is string && request.resource.data.title.size() < 200
+                && request.resource.data.body is string && request.resource.data.body.size() < 400;
+  // إشعارات المسؤولين (to == 'staff') لا يقرؤها إلا من سجّل دخوله
+  allow read: if request.auth != null || resource.data.to != 'staff';
+  // المسؤول يعدّل بحرية، والمشرف لا يغيّر إلا حقلي read وhidden في إشعاراته هو
+  allow update: if request.auth != null
+                || (resource.data.to != 'staff' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read','hidden']));
+  allow delete: if request.auth != null;
+}
