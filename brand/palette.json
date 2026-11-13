@@ -1,35 +1,51 @@
 {
   "name": "حاضر",
-  "version": "1.0",
+  "version": "2.0",
+  "tagline": "جاهزية للإشراف العام",
   "brand": {
-    "green-950": "#022C22",
-    "green-900": "#064E3B",
-    "green-800": "#065F46",
-    "green-700": "#047857",
-    "green-600": "#059669",
-    "green-500": "#10B981",
-    "green-300": "#6EE7B7",
-    "green-100": "#D1FAE5",
-    "green-50": "#ECFDF5",
-    "gold": "#FBBF24",
-    "gold-600": "#D97706",
-    "gold-100": "#FEF3C7",
-    "button-top": "#047857",
-    "button-bottom": "#065F46"
+    "navy": "#0A1F44",
+    "teal": "#00C897",
+    "gray": "#E0E0E0",
+    "white": "#FFFFFF",
+    "navy-950": "#06142E",
+    "navy-900": "#0A1F44",
+    "navy-800": "#0F2A5A",
+    "navy-700": "#163A78",
+    "teal-600": "#00A47C",
+    "teal-500": "#00C897",
+    "teal-300": "#7FE3CB",
+    "teal-100": "#DDF5EF",
+    "teal-50": "#EFFAF7",
+    "teal-text": "#00795D",
+    "button-top": "#163A78",
+    "button-bottom": "#0A1F44"
   },
   "neutral": {
-    "ink": "#14232B",
-    "slate": "#55656F",
-    "slate-2": "#617080",
-    "line": "#E3E9ED",
-    "canvas": "#F3F6F6",
+    "ink": "#0A1F44",
+    "slate": "#55617A",
+    "slate-2": "#66708A",
+    "line": "#E0E0E0",
+    "canvas": "#F5F7FA",
     "surface": "#FFFFFF"
+  },
+  "dark": {
+    "canvas": "#06142E",
+    "surface": "#0C2148",
+    "field": "#081A3A",
+    "line": "#1D3563",
+    "ink": "#E8EEF9",
+    "slate": "#A7B4CE",
+    "slate-2": "#8794B2",
+    "accent-text": "#4FE0BD",
+    "button-top": "#00D3A0",
+    "button-bottom": "#00B88A",
+    "button-ink": "#06142E"
   },
   "status": {
     "present": {
-      "fill": "#1F9D6B",
-      "bg": "#E3F5EC",
-      "ink": "#127A52"
+      "fill": "#12A87F",
+      "bg": "#DDF5EC",
+      "ink": "#0B7558"
     },
     "absent": {
       "fill": "#D64545",
@@ -65,6 +81,6 @@
       "black": 900
     },
     "use": "كل نصوص المنصة",
-    "note": "كلمة الشعار مرسومة بثمانية سانس الأسود وتبقى كما هي"
+    "note": "كلمة الشعار مرسومة بخط ثمانية وتبقى كما هي"
   }
 }
