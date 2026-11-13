@@ -1,0 +1,18 @@
+// قواعد لعبة «الشفرة السرية» (shifra/index.html)
+// أضف هذا الجزء داخل: match /databases/{database}/documents { ... } في قواعد Firestore (بجانب القواعد الحالية)
+match /g/{code} {
+  // اللعبة بلا حسابات: الدخول برمز من ٤ أرقام، والكتابة محصورة في حقول اللعبة وبحجم محدود
+  allow read: if true;
+  allow create, update: if code.matches('^[0-9]{4}$')
+                && request.resource.data.keys().hasOnly(['phase','round','qn','level','dur','startedAt','emoji','turn','turnName','tried','used','extra','ans','res'])
+                && request.resource.data.emoji is string && request.resource.data.emoji.size() < 2000
+                && request.resource.data.ans is string && request.resource.data.ans.size() < 300
+                && request.resource.data.used.size() <= 400 && request.resource.data.extra.size() <= 300;
+  match /p/{pid} {
+    allow read: if true;
+    allow create, update: if request.resource.data.keys().hasOnly(['name','score','bell','bellRound','ans','ansRound','aid'])
+                  && request.resource.data.name is string && request.resource.data.name.size() < 40
+                  && request.resource.data.ans is string && request.resource.data.ans.size() < 300
+                  && request.resource.data.score is number;
+  }
+}

@@ -1,0 +1,115 @@
+<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>لعبة الشفرة السرية</title>
+<meta name="description" content="لعبة جماعية مباشرة: فك الشفرة بالخريطة، اقرع الجرس، وأجب قبل غيرك.">
+<meta name="theme-color" content="#0f6679">
+<meta property="og:title" content="لعبة الشفرة السرية">
+<meta property="og:description" content="فك الشفرة بالخريطة، اقرع الجرس، وأجب قبل غيرك.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%90%3C/text%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.13.1/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.13.1/firebase-firestore-compat.js"></script>
+<style>
+@font-face{font-family:"Thmanyah";src:url("../brand/fonts/thmanyahserifdisplay-Medium.woff2") format("woff2");font-weight:400 500;font-display:swap}
+@font-face{font-family:"Thmanyah";src:url("../brand/fonts/thmanyahserifdisplay-Bold.woff2") format("woff2");font-weight:600 900;font-display:swap}
+:root{--bg:#eef1f3;--cd:#fff;--tx:#12202b;--mu:#5b6b78;--pr:#0f6679;--ac:#0e8a7a;--dk:#12467a;--rd:#b91c1c;--bd:#d5dde3;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1a22;--cd:#17262f;--tx:#eef3f6;--mu:#9bb0bd;--pr:#3bb3c9;--ac:#2fc7b3;--dk:#6fa8e6;--rd:#f26b6b;--bd:#2a3d49}}
+:root[data-theme="dark"]{--bg:#0e1a22;--cd:#17262f;--tx:#eef3f6;--mu:#9bb0bd;--pr:#3bb3c9;--ac:#2fc7b3;--dk:#6fa8e6;--rd:#f26b6b;--bd:#2a3d49}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;background:var(--bg);color:var(--tx);font-family:"Thmanyah",Tahoma,"Segoe UI",system-ui,sans-serif;min-height:100vh}
+#app{max-width:1100px;margin:0 auto;padding:14px}h1,h2,h3{margin:.3em 0}
+.card{background:var(--cd);border:1px solid var(--bd);border-radius:14px;padding:14px;margin:10px 0}
+button,select,input{font:inherit;border-radius:10px;border:1px solid var(--bd);padding:10px 14px;background:var(--cd);color:var(--tx)}
+button{cursor:pointer;background:var(--pr);color:#fff;border:0;font-weight:700}button.s{background:var(--cd);color:var(--tx);border:1px solid var(--bd)}button.r{background:var(--rd)}button.g{background:var(--ac)}button:disabled{opacity:.4}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.grow{flex:1}input{min-width:0}
+.big{font-size:clamp(34px,6vw,64px);line-height:1.5;text-align:center;direction:rtl;word-spacing:.6em}.w{display:inline-block;direction:rtl;unicode-bidi:isolate;margin:6px 14px;white-space:nowrap}
+.mu{color:var(--mu)}.code{font-size:40px;letter-spacing:6px;font-weight:800;color:var(--pr)}
+.tm{font-size:34px;font-weight:800;color:var(--dk)}.bell{width:100%;font-size:26px;padding:26px;background:var(--rd)}
+.sc{display:flex;justify-content:space-between;padding:7px 4px;border-bottom:1px solid var(--bd)}
+.map{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;text-align:center;font-size:13px}.map div{background:var(--bg);border-radius:8px;padding:4px 0}.map b{display:block;font-size:22px}
+@media(max-width:600px){.map{grid-template-columns:repeat(6,1fr)}}
+.tag{display:inline-block;background:var(--bg);border-radius:20px;padding:3px 12px;margin:2px}
+.ban{text-align:center;font-size:24px;font-weight:700;padding:10px}#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:10px 18px;border-radius:12px;display:none}
+.two{display:grid;grid-template-columns:2fr 1fr;gap:12px}@media(max-width:800px){.two{grid-template-columns:1fr}}
+</style></head><body><div id="app"></div><div id="toast"></div>
+<script>
+const GR=[["آ-أ","💤"],["ب","🎯"],["ت","🔋"],["ث","💡"],["ج","💣"],["ح","🧩"],["خ","🥇"],["د","🎤"],["ذ","🌊"],["ر","🕶"],["ع","📿"],["غ","🛎"],["ف","🔑"],["ز","🌓"],["س","⏰"],["ش","🚀"],["ص","🥊"],["ض","🧱"],["ط","🪓"],["ظ","📚"],["ق","🎥"],["ك","📻"],["ل","🎬"],["م","👑"],["ن","🧠"],["ه","💼"],["و","🦊"],["ي-ئ","🍔"],["إ-ء","💰"],["ة","⛱️"]];
+const CM={};GR.forEach(([l,e])=>l.split("-").forEach(c=>CM[c]=e));CM["ا"]=CM["أ"];CM["ى"]=CM["ي"];CM["ؤ"]=CM["و"];
+const cl=t=>t.replace(/[\u064B-\u0652ـ]/g,"").trim();
+const enc=t=>cl(t).split(/\s+/).map(w=>[...w].map(c=>CM[c]||"").filter(Boolean).join(" ")).filter(Boolean).join("|");
+const norm=t=>cl(t).replace(/\s/g,"").replace(/[آأإ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه").replace(/ؤ/g,"و").replace(/ئ/g,"ي").replace(/ء/g,"");
+const S=s=>s.split("|");
+const POOL={
+easy:S("العلا|أملج|رجال ألمع|دومة الجندل|النماص|فيفاء|تنومة|حقل|مكة المكرمة|الهفوف|جدة|الرياض|الدمام|أبها|تبوك|حائل|جازان|نجران|الباحة|الطائف|ينبع|الخبر|القطيف|بريدة|عنيزة|الجوف|عرعر|سكاكا|الوجه|ضباء|بيشة|خميس مشيط|الخرج|المجمعة|الزلفي|شقراء|القنفذة|الليث|رابغ|بدر|خيبر|المدينة المنورة|حفر الباطن|الجبيل|رأس تنورة|صبيا|أبو عريش|المخواة|بلجرشي|تثليث|وادي الدواسر|الدرعية|عسفان|كبسة|مندي|جريش|مطبق|سمبوسة|هريس|مفطح|قهوة|تمر|رطب|مرقوق|مطازيز|عصيدة|جمل|صقر|حصان|غزال|أسد|نمر|ذئب|ثعلب|وعل|هدهد|حمامة|نعامة|أرنب|زرافة|فيل|دلفين|قرش|مصر|الأردن|عمان|قطر|الكويت|البحرين|اليمن|لبنان|سوريا|العراق|المغرب|تونس|الجزائر|ليبيا|السودان|تركيا|اليابان|الصين|الهند|ماليزيا|إندونيسيا|البرازيل|كندا|ألمانيا|فرنسا|إسبانيا|إيطاليا|الأرجنتين|برج المملكة|برج الفيصلية|طريق الحرير|الكعبة|جبل أحد|غار حراء|جبل عرفات|وادي حنيفة|الحرم النبوي|ساعة مكة|جبل طويق|كورنيش جدة"),
+mid:S("بلال بن رباح|خالد بن الوليد|سعد بن أبي وقاص|زيد بن حارثة|عمار بن ياسر|مصعب بن عمير|معاذ بن جبل|أبو عبيدة بن الجراح|سعد بن معاذ|عبدالله بن رواحة|جعفر بن أبي طالب|عمرو بن العاص|أسامة بن زيد|أنس بن مالك|سلمان الفارسي|صهيب الرومي|عثمان بن مظعون|أبي بن كعب|حسان بن ثابت|عبادة بن الصامت|خباب بن الأرت|عدي بن حاتم|عمرو بن الجموح|سعيد بن زيد|طلحة بن عبيدالله|الزبير بن العوام|عبدالرحمن بن عوف|أسعد بن زرارة|البراء بن مالك|النعمان بن مقرن|المقداد بن الأسود|حذيفة بن اليمان|جابر بن عبدالله|زيد بن ثابت|أوس بن خولي|الحارث بن ربعي|سهل بن حنيف|ثابت بن الدحداح|عتبة بن غزوان|الحباب بن المنذر|الطفيل بن عمرو الدوسي|ربيعة بن كعب الأسلمي|معن بن عدي|فرات بن حيان|ضحاك بن سفيان الكلابي|خديجة بنت خويلد|عائشة بنت أبي بكر|أسماء بنت أبي بكر|سمية بنت خياط|نسيبة بنت كعب|الخنساء بنت عمرو|صفية بنت عبدالمطلب|نائلة بنت الفرافصة|خولة بنت الأزور|لبابة بنت الحارث|رفاعة بن رافع|مالك بن سنان|غيلان بن سلمة الثقفي"),
+hard:S("الصبر مفتاح الفرج|الجار قبل الدار|من جد وجد|العلم نور|الوقت كالسيف|القناعة كنز لا يفنى|يد واحدة لا تصفق|الحاجة أم الاختراع|ما حك جلدك مثل ظفرك|من زرع حصد|الطيور على أشكالها تقع|رب أخ لك لم تلده أمك|خير الكلام ما قل ودل|إذا طاح الجمل كثرت سكاكينه|من طلع من داره قل مقداره|كل تأخيرة فيها خيرة|من نشب على شيء شاب عليه|كل شارب وله مقص|لا تشكيلي فأبكيلك|مو كل مرة تسلم الجرة|اللي ما يعرف الصقر يشويه|حبل الكذب قصير|الكلمة الطيبة صدقة|الغايب حجته معه|الصديق وقت الضيق|الصحة تاج على رؤوس الأصحاء|العجلة من الشيطان|درهم وقاية خير من قنطار علاج|وقت الشدة يظهر الرجال|اتق شر من أحسنت إليه|الطماع ما يشبع|ما يحس بالجمرة إلا اللي واطيها|اللي فاته الصيد يتعب|العين ما تعلى على الحاجب|اطلب العلم من المهد إلى اللحد")};
+const LV={easy:"سهل",mid:"متوسط",hard:"صعب",fin:"نهائي",mix:"عشوائي"};
+const pool=(l,ex)=>{const b=l=="fin"?[...POOL.mid,...POOL.hard]:l=="mix"?[...POOL.easy,...POOL.mid,...POOL.hard]:POOL[l];return b.concat((ex||[]).filter(x=>l=="mix"||l=="fin"||x.l==l).map(x=>x.t))};
+let seen=[];try{seen=JSON.parse(localStorage.getItem("seen")||"[]")}catch(e){}
+const pick=(l,used,ex)=>{const p=pool(l,ex);let c=p.filter(x=>!used.includes(x)&&!seen.includes(x));if(!c.length)c=p.filter(x=>!used.includes(x));if(!c.length)c=p;const t=c[Math.floor(Math.random()*c.length)];seen=[...seen,t].slice(-3000);try{localStorage.setItem("seen",JSON.stringify(seen))}catch(e){}return t};
+let db,V={role:null,code:"",st:null,ps:[],pid:null,msg:""},cur=null,judged="",unsubs=[],keep={};
+const $=id=>document.getElementById(id);const toast=m=>{const t=$("toast");t.textContent=m;t.style.display="block";setTimeout(()=>t.style.display="none",2600)};
+const G=()=>db.doc("g/"+V.code),P=()=>db.collection("g/"+V.code+"/p");
+const me=()=>V.ps.find(p=>p.id==V.pid);
+const mapH=()=>`<div class="map">${GR.map(([l,e])=>`<div><b>${e}</b>${l.replace("-"," ")}</div>`).join("")}</div>`;
+const board=()=>[...V.ps].sort((a,b)=>(b.score||0)-(a.score||0)).map((p,i)=>`<div class="sc"><span>${i+1}. ${esc(p.name)}</span><b>${p.score||0}</b></div>`).join("")||'<div class="mu">لا يوجد متسابقون بعد</div>';
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const qH=s=>s.emoji?s.emoji.split("|").map(w=>`<span class="w">${w}</span>`).join(" "):"";
+const rem=s=>Math.max(0,Math.ceil((s.startedAt+s.dur*1000-Date.now())/1000));
+const banner=s=>s.phase=="reveal"?(s.res?.ok?`🎉 ${esc(s.res.n)} أجاب صح +10<br><span class="mu">${esc(s.ans)}</span>`:`${s.res?.to?"⏰ انتهى الوقت":"الإجابة"}: <span style="color:var(--ac)">${esc(s.ans)}</span>`):s.phase=="q"?(s.turn?`🔔 الجرس عند ${esc(s.turnName)}`:"🔕 بانتظار قرع الجرس…"):"بانتظار بدء السؤال";
+function sub(){unsubs.forEach(u=>u());unsubs=[];
+unsubs.push(G().onSnapshot(s=>{V.st=s.exists?s.data():null;if(!V.st&&V.role){toast("اللعبة غير موجودة");V.role=null}render();logic()}));
+unsubs.push(P().onSnapshot(s=>{V.ps=s.docs.map(d=>({id:d.id,...d.data()}));render();logic()}))}
+async function enter(role){const code=($("code")?.value||"").trim();if(!code)return toast("اكتب رمز اللعبة");
+const r=await db.doc("g/"+code).get();if(!r.exists)return toast("رمز غير صحيح");
+V.code=code;V.role=role;if(role=="h"){try{cur=sessionStorage.getItem("cur"+code)}catch(e){}}if(role=="p"){const name=($("nm")?.value||"").trim();if(!name)return toast("اكتب اسمك");
+let pid=null;try{pid=localStorage.getItem("pid"+code)}catch(e){}pid=pid||"p"+Math.random().toString(36).slice(2,9);try{localStorage.setItem("pid"+code,pid)}catch(e){}
+V.pid=pid;const x=await P().doc(pid).get();if(x.exists)await P().doc(pid).update({name});else await P().doc(pid).set({name,score:0,bell:0,bellRound:0,ans:"",ansRound:0,aid:""})}
+sub()}
+async function create(){const code=String(Math.floor(1000+Math.random()*9000));await db.doc("g/"+code).set({phase:"lobby",round:0,qn:0,level:"easy",dur:60,startedAt:0,emoji:"",turn:"",turnName:"",tried:[],used:[],extra:[],ans:"",res:null});V.code=code;V.role="h";sub()}
+const up=o=>G().update(o);
+function share(){const u=location.origin+location.pathname+"?c="+V.code;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast("نُسخ الرابط"),()=>prompt("انسخ الرابط",u))}
+async function newQ(){const s=V.st,lv=$("lv")?.value||s.level,dur=+($("du")?.value||s.dur);const t=pick(lv,s.used||[],s.extra);cur=t;judged="";try{sessionStorage.setItem("cur"+V.code,t)}catch(e){}
+await up({phase:"q",round:s.round+1,qn:(s.qn||0)+1,level:lv,dur,emoji:enc(t),startedAt:Date.now(),turn:"",turnName:"",tried:[],res:null,ans:"",used:[...(s.used||[]),t].slice(-400)})}
+const reveal=res=>up({phase:"reveal",ans:cur||"—",res});
+async function mark(ok){const s=V.st,p=V.ps.find(x=>x.id==s.turn);if(!p)return;
+if(ok){await P().doc(p.id).update({score:(p.score||0)+10});reveal({n:p.name,ok:1})}else wrong(p,5)}
+async function wrong(p,n){await P().doc(p.id).update({score:(p.score||0)-n});await up({turn:"",turnName:"",tried:[...(V.st.tried||[]),p.id]})}
+async function resetAll(){for(const p of V.ps)await P().doc(p.id).update({score:0});up({used:[]});toast("تم تصفير النقاط")}
+async function addQ(){const t=cl($("cq").value);if(!t)return;await up({extra:[...(V.st.extra||[]),{t,l:V.st.level=="fin"||V.st.level=="mix"?"mid":V.st.level}].slice(-300)});$("cq").value="";keep.cq="";toast("أضيف السؤال وسيظهر ضمن الأسئلة القادمة")}
+async function bell(){const s=V.st;await P().doc(V.pid).update({bell:Date.now(),bellRound:s.round})}
+async function send(){const v=$("an").value.trim();if(!v)return;keep.an="";await P().doc(V.pid).update({ans:v,ansRound:V.st.round,aid:Math.random().toString(36).slice(2)})}
+function logic(){if(V.role!="h"||!V.st)return;const s=V.st;if(s.phase!="q")return;
+if(!s.turn){const c=V.ps.filter(p=>p.bellRound==s.round&&!(s.tried||[]).includes(p.id)).sort((a,b)=>a.bell-b.bell)[0];if(c){judged="";up({turn:c.id,turnName:c.name})}return}
+const p=V.ps.find(x=>x.id==s.turn);if(p&&p.ansRound==s.round&&p.aid&&p.aid!=judged&&cur){judged=p.aid;if(norm(p.ans)==norm(cur)){P().doc(p.id).update({score:(p.score||0)+10});reveal({n:p.name,ok:1})}else wrong(p,5)}}
+function render(){const a=$("app");if(!a)return;document.querySelectorAll("input,select").forEach(e=>{if(e.id)keep[e.id]=e.value});const f=document.activeElement?.id;
+const s=V.st;let h="";
+if(!db)h=`<div class="card"><h2>🔐 لعبة الشفرة السرية</h2><p>تعذر الاتصال بالخادم. تحقق من اتصالك بالإنترنت ثم أعد تحميل الصفحة.</p></div>`;
+else if(!V.role)h=`<h1 style="text-align:center">🔐 لعبة الشفرة السرية</h1><p class="mu" style="text-align:center">فك الشفرة بالخريطة، اقرع الجرس، وأجب قبل غيرك</p>
+<div class="two"><div class="card"><h3>منظّم اللعبة</h3><p class="mu">أنشئ جلسة جديدة وتحكم بالأسئلة والوقت.</p><button onclick="create()">إنشاء لعبة جديدة</button></div>
+<div class="card"><h3>الدخول برمز</h3><div class="row"><input id="code" value="${esc(keep.code||new URLSearchParams(location.search).get("c")||"")}" placeholder="رمز اللعبة" inputmode="numeric" class="grow"></div><div class="row" style="margin-top:8px"><input id="nm" placeholder="اسمك (للمتسابق)" class="grow"></div>
+<div class="row" style="margin-top:8px"><button class="g" onclick="enter('p')">أنا متسابق</button><button class="s" onclick="enter('d')">شاشة العرض</button><button class="s" onclick="enter('h')">منظّم</button></div></div></div>
+<div class="card"><h3>خريطة الشفرة</h3>${mapH()}</div>`;
+else if(!s)h="…";
+else if(V.role=="d")h=`<div class="row"><span class="code">${V.code}</span><span class="tag">${LV[s.level]}</span><span class="tag">سؤال ${s.qn||0}</span><span class="grow"></span><span class="tm" id="tm">${s.phase=="q"?rem(s):""}</span></div>
+<div class="two"><div><div class="card" style="min-height:220px;display:flex;align-items:center;justify-content:center"><div class="big">${s.phase=="lobby"?"🔐":qH(s)}</div></div><div class="card ban">${banner(s)}</div></div>
+<div class="card"><h3>الترتيب</h3>${board()}<p class="mu">القواعد: صح +10 · خطأ −5 · قرع مبكر −3 · القراءة من اليمين لليسار</p></div></div><div class="card">${mapH()}</div>`;
+else if(V.role=="h")h=`<div class="row"><span class="code">${V.code}</span><span class="mu">أعطِ المتسابقين الرمز، وافتح "شاشة العرض" بنفس الرمز على الشاشة.</span><button class="s" onclick="share()">نسخ رابط الدعوة</button><span class="grow"></span><span class="tm" id="tm">${s.phase=="q"?rem(s):""}</span></div>
+<div class="two"><div><div class="card"><div class="row"><select id="lv">${Object.entries(LV).map(([k,v])=>`<option value="${k}" ${k==s.level?"selected":""}>${v}</option>`).join("")}</select>
+<select id="du">${[30,45,60,90,120].map(x=>`<option value="${x}" ${x==s.dur?"selected":""}>${x} ثانية</option>`).join("")}</select><button class="g" onclick="newQ()">${s.phase=="lobby"?"ابدأ السؤال الأول":"سؤال جديد"}</button></div></div>
+${s.phase!="lobby"?`<div class="card"><div class="big">${qH(s)}</div><div class="ban">${banner(s)}</div><p class="mu" style="text-align:center">الإجابة (للمنظّم): ${esc(cur||"—")}</p>
+<div class="row"><button class="g" ${s.turn&&s.phase=="q"?"":"disabled"} onclick="mark(1)">✔ صح +10</button><button class="r" ${s.turn&&s.phase=="q"?"":"disabled"} onclick="mark(0)">✘ خطأ −5</button>
+<button class="r" ${s.turn&&s.phase=="q"?"":"disabled"} onclick="wrong(V.ps.find(x=>x.id==V.st.turn),3)">🔔 قرع مبكر −3</button><button class="s" onclick="reveal({})">كشف الإجابة</button></div></div>`:""}
+<div class="card"><h3>إضافة أسئلة</h3><div class="row"><input id="cq" class="grow" placeholder="كلمة أو عبارة تتحول لرموز تلقائياً"><button onclick="addQ()">إضافة</button></div>
+<p class="mu">عدد الأسئلة المتاحة في المستوى المختار: ${pool(s.level,s.extra).length} · لا يتكرر السؤال ما دامت هناك أسئلة غير مستخدمة.</p></div></div>
+<div class="card"><h3>المتسابقون (${V.ps.length})</h3>${board()}<button class="s" onclick="resetAll()" style="margin-top:8px">تصفير النقاط</button></div></div>`;
+else{const m=me()||{},mine=s.turn==V.pid,tried=(s.tried||[]).includes(V.pid);
+h=`<div class="row"><b class="grow">${esc(m.name)} · ${m.score||0} نقطة</b><span class="tm" id="tm">${s.phase=="q"?rem(s):""}</span></div>
+<div class="card ban">${s.phase=="lobby"?"انتظر بدء السؤال… انظر لشاشة العرض":banner(s)}</div>
+${s.phase=="q"&&!s.turn&&!tried?`<button class="bell" onclick="bell()">🔔 قرع الجرس</button>`:""}
+${s.phase=="q"&&mine?`<div class="card"><h3>اكتب إجابتك</h3><div class="row"><input id="an" class="grow" autocomplete="off"><button onclick="send()">إرسال</button></div></div>`:""}
+${s.phase=="q"&&tried?'<div class="card mu">أجبت خطأً في هذا السؤال، دور غيرك الآن</div>':""}
+<details class="card"><summary>خريطة الشفرة</summary>${mapH()}</details>`}
+a.innerHTML=h;Object.entries(keep).forEach(([k,v])=>{const e=$(k);if(e)e.value=v});if(f&&$(f)){$(f).focus()}}
+setInterval(()=>{const s=V.st,t=$("tm");if(!s||s.phase!="q")return;if(t)t.textContent=rem(s);if(V.role=="h"&&rem(s)<=0&&cur)reveal({to:1})},500);
+try{firebase.initializeApp({apiKey:"AIzaSyDUWr83DcHhXndF79v4yyph041GoVCr1J4",authDomain:"hadeer-attendance.firebaseapp.com",projectId:"hadeer-attendance",storageBucket:"hadeer-attendance.firebasestorage.app",messagingSenderId:"247535308843",appId:"1:247535308843:web:ef95059118d08d66801a6e"});db=firebase.firestore()}catch(e){}
+window.addEventListener("unhandledrejection",e=>{toast(e.reason&&e.reason.code=="permission-denied"?"قواعد قاعدة البيانات لا تسمح بعد — انظر firestore-shifra.rules":"تعذر الاتصال، حاول مجدداً")});
+render();
+</script></body></html>
